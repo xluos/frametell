@@ -21,6 +21,7 @@ const grammar = (style: string) => {
 
 /** fallback names; the panel shows its own translated names for these ids */
 export const STYLES: { id: string; name: string; summary: string }[] = [
+  { id: 'editorial', name: 'Editorial explainer', summary: 'A visual lesson with a palette, typography and composition designed for each film; follows your visual notes' },
   { id: 'warm-story', name: 'Warm illustration', summary: 'Warm flat illustration with one metaphor object carried through the film; for investing, everyday life and psychology' },
   { id: 'study', name: 'Quiet study', summary: 'Hand-drawn on paper, ink lines and light washes; for books, history and methods' },
   { id: 'whiteboard', name: 'Whiteboard', summary: 'Marker on a whiteboard, drawn while explaining; for breaking down concepts, business models, methods and processes' },
@@ -78,13 +79,13 @@ export function langNote(stage: 'storyboard' | 'script' | 'page' | 'revise', lan
   const film = {
     zh: {
       storyboard: 'Film language: **Chinese**. In storyboard.json write `"lang": "zh"`; write title, summary, section, say and each beat\'s object / action / text in Simplified Chinese: on-screen text at most 8 characters per element, and a beat tied to a word names the Chinese word as spoken (`c2:三十年`).',
-      script: 'Film language: **Chinese**. A cue is one short spoken sentence in Simplified Chinese, at most 16 characters, 3–8 per page; write numbers in Arabic digits and units as they are spoken (年, 元).',
+      script: 'Film language: **Chinese**. A cue is one subtitle line in Simplified Chinese, at most about 16 characters, cut at a comma or a full stop; a sentence may run over several cues. Write numbers in Arabic digits and units as they are spoken (年, 元).',
       page: 'This is a Chinese film: all text on screen (titles, labels, units) is in Simplified Chinese, matching the narration.',
       revise: 'This is a Chinese film: rewrite narration in Simplified Chinese, keeping the number of cues; your notes to the page agent can be in English.',
     },
     en: {
       storyboard: 'Film language: **English**. In storyboard.json write `"lang": "en"`; write title, summary, section, say and each beat\'s object / action / text in English: on-screen text at most 5 English words per element, and a beat tied to a word names the English word (`c2:thirty`).',
-      script: 'Film language: **English**. A cue is one short spoken English sentence, at most 12 words, 3–8 per page; write numbers in Arabic digits (1,000, 30%) and units as they are spoken (years, dollars).',
+      script: 'Film language: **English**. A cue is one subtitle line in English, at most about 12 words, cut at a clause boundary; a sentence may run over several cues. Write numbers in Arabic digits (1,000, 30%) and units as they are spoken (years, dollars).',
       page: 'This is an English film: all text on screen (titles, labels, units) is in English, matching the narration. English runs longer than Chinese, so leave enough width for text.',
       revise: 'This is an English film: rewrite narration in English, keeping the number of cues; your notes to the page agent can be in English.',
     },
@@ -99,7 +100,7 @@ export function langNote(stage: 'storyboard' | 'script' | 'page' | 'revise', lan
 export function voiceNote(stage: 'storyboard' | 'script' | 'revise', voice?: Brief['voice']) {
   if (!voice) return {
     storyboard: 'This film has no voice, and may be watched without subtitles: the picture alone must tell the story, so key words and numbers go on screen as text.',
-    script: 'This film has no voice: nobody hears the cues. They time the picture, and become the subtitles if the user turns them on, so write each as a short caption that reads well on its own.',
+    script: 'This film has no voice: nobody hears the cues. They time the picture, and become the subtitles if the user turns them on, so cut each page\'s say into short captions that each read well on their own, ending each with its own punctuation.',
     revise: 'This film has no voice: the cues only time the picture and serve as subtitles.',
   }[stage];
   if (voice !== 'volcengine') return '';
@@ -124,6 +125,20 @@ export function storyboardPrompt(brief: Brief, style: string, materials: string[
     `Style: ${style} (write "${style}" as the style in storyboard.json).`,
     `Material: ${materials.map((m) => 'materials/' + m).join(', ') || '(none; write from the topic)'}`,
     'Stop and report once storyboard.json is written.' + withVoice('storyboard', brief) + langNote('storyboard', brief.lang, brief.replyLang),
+  ].filter(Boolean).join('\n');
+}
+
+/** What the narration check found (narration.ts), sent back to the director once before the narration is voiced:
+ *  `fix` must be fixed (a beat that would wait for a word no line says), `advice` is how it will sound to a listener */
+export function narrationFixPrompt(found: { level: 'fix' | 'advice'; page?: string; msg: string }[], brief?: Brief) {
+  const fix = found.filter((f) => f.level === 'fix'), advice = found.filter((f) => f.level === 'advice');
+  const line = (f: { page?: string; msg: string }) => `- ${f.page ?? 'whole film'}: ${f.msg}`;
+  return [
+    'The server read the narration the way a listener will hear it, before it is voiced.',
+    fix.length ? `Must fix (the picture is timed by these):\n${fix.map(line).join('\n')}` : '',
+    advice.length ? `How it will sound (fix it where a listener would hear the problem; leave a false alarm as it is):\n${advice.map(line).join('\n')}` : '',
+    'Change only the lines named, with edit, keeping the page\'s facts, its beats\' words and its approved meaning; when a change moves a beat\'s word to another line, change that beat\'s `at` in storyboard.json. Then run node engine/tools/script.mjs and stop, saying in one sentence what you changed.',
+    [voiceNote('script', brief?.voice), langNote('script', brief?.lang, brief?.replyLang).trim()].filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n');
 }
 

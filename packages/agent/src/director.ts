@@ -3,9 +3,10 @@
 // remembering to look. Every change is committed; state is persisted so an interrupted run resumes where it stopped.
 import fs from 'node:fs';
 import path from 'node:path';
-import { narrate, type TtsProvider } from '@frametell/voice';
+import { narrate, scriptData, type TtsProvider } from '@frametell/voice';
+import { checkNarration, type NarrationFinding } from './narration.js';
 import { Project, childCmd, projectFiles, type LintIssue, type LintKind, type PageTiming, type Storyboard, type Renderer } from './project.js';
-import { FLAG, VERDICT, fixPrompt, langNote, voiceNote, pagePrompt, pageSystem, plannerSystem, replyNote, reviewPrompt, reviewerPrompt, reviewerSystem, scriptPrompt, storyboardFixPrompt, storyboardPrompt, verdictAgain, type Brief, type Problem } from './prompts.js';
+import { FLAG, VERDICT, fixPrompt, langNote, voiceNote, pagePrompt, pageSystem, plannerSystem, replyNote, reviewPrompt, reviewerPrompt, reviewerSystem, scriptPrompt, narrationFixPrompt, storyboardFixPrompt, storyboardPrompt, verdictAgain, type Brief, type Problem } from './prompts.js';
 import { addUsage, emptyUsage, type AgentRuntime, type AgentSession, type SessionOptions, type Thinking, type TokenUsage, type TurnResult } from './runtime/types.js';
 import type { PageIssue, PageStatus, Stage, StudioEvent } from './events.js';
 import { designedFonts, designedIssues, designedLook, type Look } from './look.js';
@@ -325,24 +326,48 @@ export class Director {
     const s = await this.session('planner', plannerSystem(this.o.style, this.o.brief.preferences, this.o.brief.styleNotes, this.o.brief.brand), MAX.planTurns, this.state.planner);
     let r = await this.send(s, scriptPrompt(feedback, this.o.brief) + this.unseen('planner'));
     this.state.planner = s.ref; this.save();
-    let check: Awaited<ReturnType<Project['scriptCheck']>>;
+    r = await this.scriptComplete(s, r);
+    // read the narration as a listener hears it, once, before any of it is voiced; then check it is whole again
+    const found = await this.narrationFindings();
+    if (found.length) {
+      this.emit({ type: 'note', text: this.say('顺着讲一遍口播，有几处听起来像在念提纲，让导演再改一下', 'Reading the narration aloud: a few lines sound like reading out slides, so the director is revising them') });
+      r = await this.send(s, narrationFixPrompt(found, this.o.brief));
+      r = await this.scriptComplete(s, r);
+    }
+    const check = await this.project.scriptCheck();
+    await this.commit(this.say('口播', 'Narration'));
+    await s.close();
+    this.state.stage = 'narrate'; this.save();
+    this.emit({ type: 'stage', stage: 'script', status: 'done', detail: check.out.split('\n').pop() });
+  }
+
+  /** The narration as the planner left it, made whole: the server's META put back, the script readable, a line for every
+   *  storyboard page (asked for once or twice; the film stops if they still don't come). */
+  private async scriptComplete(s: AgentSession, r: TurnResult): Promise<TurnResult> {
     for (let ask = 0; ; ask++) {
       // the planner rewrites script.js: put the server-owned fields back (a lost META.voice once rendered a silent film)
       this.serverMeta();
-      check = await this.project.scriptCheck();
+      const check = await this.project.scriptCheck();
       if (check.code) this.fail('script', this.say(`口播脚本有错：`, `The narration script has an error: `) + `${check.err || check.out} ${r.error ?? ''}`);
       // the pages drawn are the narration's: a turn that ended before every storyboard page had its words made a
       // one-page film of an eight-page storyboard, green all the way. Ask for the rest; stop if they still don't come.
       const narrated = new Set((await this.project.timeline()).pages.map((p) => p.id));
       const missing = this.project.storyboard().pages.map((p) => p.id).filter((id) => !narrated.has(id));
-      if (!missing.length) break;
+      if (!missing.length) return r;
       if (ask === MAX.scriptFix) this.fail('script', this.say(`口播没有写完：分镜里的 ${missing.join('、')} 没有口播`, `The narration is unfinished: ${missing.join(', ')} of the storyboard ha${missing.length > 1 ? 've' : 's'} no narration`) + (r.error ? ` (${r.error})` : ''));
       r = await this.send(s, `script.js has no narration for ${missing.join(', ')}: every page of storyboard.json needs its entry in PAGES, in the storyboard's order, with the same id. Add the missing pages and keep the ones already written, then run node engine/tools/script.mjs and stop. ` + replyNote(this.o.brief.replyLang, this.o.brief.lang));
     }
-    await this.commit(this.say('口播', 'Narration'));
-    await s.close();
-    this.state.stage = 'narrate'; this.save();
-    this.emit({ type: 'stage', stage: 'script', status: 'done', detail: check.out.split('\n').pop() });
+  }
+
+  /** what a listener would hear wrong in the narration (narration.ts); nothing when it cannot be read (said elsewhere) */
+  private async narrationFindings(): Promise<NarrationFinding[]> {
+    try {
+      const { pages } = await scriptData(this.o.dir, childCmd, { signal: this.o.signal });
+      return checkNarration(this.project.storyboard(), pages, { voiced: !!this.o.brief.voice });
+    } catch (e) {
+      if (stopped(e)) throw e;
+      return [];
+    }
   }
 
   /** a designed style's film (its style has no look of its own): what its storyboard still lacks of the look */
