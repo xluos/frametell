@@ -1,0 +1,5 @@
+{
+  "sans": { "name": "Clear sans serif", "hand": "'PingFang SC', 'Microsoft YaHei', sans-serif", "latin": "'Helvetica Neue', Arial, sans-serif" },
+  "serif": { "name": "Editorial serif", "hand": "'Songti SC', 'SimSun', serif", "latin": "Georgia, serif" },
+  "hand": { "name": "Handwritten notes", "hand": "'LXGW WenKai', cursive", "latin": "'LXGW WenKai', cursive" }
+}

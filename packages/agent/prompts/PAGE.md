@@ -28,6 +28,9 @@ You turn **one page** of the storyboard into drawing code, `pages/<id>.js`. You 
 
 ## How it moves
 
+- **Make the explanation visible.** Keep the running example identifiable by its label, shape and colour. When a condition changes, change that same object, quantity or path; keep enough of its previous state visible to compare. Do not substitute a new labelled box for each sentence. A hypothetical demonstration must remain visibly labelled as such.
+- **Compose for the reasoning.** Choose a large worked example, an asymmetric diagram, an annotated object or a before/after as appropriate. Alternate wide context and close detail when the explanation calls for it. Keep typography and colour roles consistent across these compositions. Use space to isolate the key change rather than filling it with decorative panels.
+
 - **Reveal on the word.** Each part of the picture arrives when the narration names it (`P.cw`), spread across the page. Open with the scene already set (the place, the main object), then add to it; never put the whole diagram up in the first seconds and let the voice catch up.
 - **Something changes every few seconds** while the voice runs, and the page settles for about a second before it ends, so the turn to the next page is a cut from stillness, not from the middle of a move.
 - **Smooth, not bouncy.** Moves decelerate into place (`PV.ease.out`, `inOut` for the camera). Overshoot (`back`, `'slam'`) only for one hit a page at most, unless the style's grammar card asks for bounce. No motion is better than bad motion: no idle breathing, bobbing or pulsing loops, and no slow drift across a whole page.

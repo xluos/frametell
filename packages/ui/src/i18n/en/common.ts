@@ -27,9 +27,11 @@ const en: typeof zh = {
   },
   requestFailed: 'Request failed ({status})',
   styles: {
+    editorial: 'Editorial explainer',
     'warm-story': 'Warm storybook', study: 'Quiet study', whiteboard: 'Whiteboard', chalkboard: 'Chalkboard', 'tech-dark': 'Tech dark',
   },
   styleSummaries: {
+    editorial: 'A visual lesson with colours, type and composition designed for each film. Follows your visual notes.',
     'warm-story': 'Warm flat illustration with one metaphor carried through the whole film. Good for investing, everyday life and psychology.',
     study: 'Hand drawn on paper in ink and light washes. Good for books, history and methods.',
     whiteboard: 'Marker on a whiteboard, drawn as it’s explained. Good for breaking down concepts, business models, methods and processes.',

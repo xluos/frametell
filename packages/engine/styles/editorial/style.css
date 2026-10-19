@@ -1,0 +1,2 @@
+/* Font choices use local system faces; no network font download is needed. */
+:root { --hand: 'PingFang SC', 'Microsoft YaHei', sans-serif; --latin: 'Helvetica Neue', Arial, sans-serif; }

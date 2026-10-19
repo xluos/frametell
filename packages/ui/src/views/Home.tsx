@@ -35,6 +35,7 @@ export function Home({ openSettings, prefsStamp }: { openSettings: (section?: st
   const [files, setFiles] = useState<File[]>([]);
   // ?topic= starts the box with an idea typed elsewhere (frametell.ai's landing page)
   const [topic, setTopic] = useState(() => new URLSearchParams(location.search).get('topic') || '');
+  const [styleNotes, setStyleNotes] = useState('');
   const [duration, setDuration] = useState(60);
   // on a hosted service: what this film is quoted at, against the balance
   const credits = useCredits();
@@ -100,7 +101,7 @@ export function Home({ openSettings, prefsStamp }: { openSettings: (section?: st
       if (!hosted && (modelId !== settings.data?.defaults.model || (pagesOwn ? pagesId : '') !== (savedPages ?? ''))) {
         await client.updateSettings({ defaults: { model: modelId, pageModel: pagesOwn ? pagesId : '' } }).catch(() => {});
       }
-      const p = await client.createProject({ durationSec: duration, lang: filmLang, style: styleId, model: modelId, pageModel: pagesOwn ? pagesId : '', notes: topic.trim() || undefined, research: canSearch ? webOn : undefined, voice: v ? { provider: v.provider, id: v.id, name: v.name } : voiceId === null ? null : undefined }, files);
+      const p = await client.createProject({ durationSec: duration, lang: filmLang, style: styleId, styleNotes: styleNotes.trim() || undefined, model: modelId, pageModel: pagesOwn ? pagesId : '', notes: topic.trim() || undefined, research: canSearch ? webOn : undefined, voice: v ? { provider: v.provider, id: v.id, name: v.name } : voiceId === null ? null : undefined }, files);
       go(`#/p/${p.id}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
   };
@@ -184,6 +185,13 @@ export function Home({ openSettings, prefsStamp }: { openSettings: (section?: st
               <p className="mt-1.5 text-[12.5px] text-accent-ink">{t('home.styleLocked')} <a className="underline underline-offset-2" href={credits.url} target="_top">{t('home.upgrade')}</a></p>
             )}
           </fieldset>
+          <div className="sm:col-span-2">
+            <label htmlFor="style-notes" className="fs-label">{t('home.styleNotesLabel')}</label>
+            <textarea id="style-notes" value={styleNotes} onChange={(e) => setStyleNotes(e.target.value)} rows={2} maxLength={4000}
+              aria-describedby="style-notes-hint" placeholder={t('home.styleNotesPlaceholder')}
+              className="fs-input w-full resize-y text-[13px] leading-relaxed" />
+            <p id="style-notes-hint" className="mt-1.5 text-[12px] text-ink-3">{t('home.styleNotesHint')}</p>
+          </div>
           {settings.data && <Preferences text={settings.data.preferences ?? ''} onOpen={() => openSettings('preferences')} />}
           {!hosted && <div className="sm:col-span-2">
             <div className="flex items-baseline justify-between gap-3">
