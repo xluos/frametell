@@ -79,7 +79,7 @@ export function langNote(stage: 'storyboard' | 'script' | 'page' | 'revise', lan
   const film = {
     zh: {
       storyboard: 'Film language: **Chinese**. In storyboard.json write `"lang": "zh"`; write title, summary, section, say and each beat\'s object / action / text in Simplified Chinese: on-screen text at most 8 characters per element, and a beat tied to a word names the Chinese word as spoken (`c2:三十年`).',
-      script: 'Film language: **Chinese**. A cue is one subtitle line in Simplified Chinese, at most about 16 characters, cut at a comma or a full stop; a sentence may run over several cues. Write numbers in Arabic digits and units as they are spoken (年, 元).',
+      script: 'Film language: **Chinese**. A cue is one subtitle line in Simplified Chinese, at most about 16 characters, cut at a comma or a full stop; a sentence may run over several cues. Write measured quantities in Arabic digits and units as they are spoken (年, 元); a counting word inside a phrase stays in characters (一次、一遍、一个问题).',
       page: 'This is a Chinese film: all text on screen (titles, labels, units) is in Simplified Chinese, matching the narration.',
       revise: 'This is a Chinese film: rewrite narration in Simplified Chinese, keeping the number of cues; your notes to the page agent can be in English.',
     },

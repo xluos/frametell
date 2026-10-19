@@ -39,6 +39,11 @@ test('a page that teaches passes clean', () => {
   assert.deepEqual(kinds(s, [{ id: 'p01', cues: ['假设只有股票涨到了40元，', '整笔钱就变成了115元。', '可目标还是各占四分之一，', '所以每格该有的钱，', '要按现在的115元重新算。'] }]), []);
 });
 
+test('a mechanism page linked by 据此 and 才 is not a page with no reasons', () => {
+  const s = sb([{ id: 'p08', section: '学习', say: '', beats: [] }]);
+  assert.deepEqual(kinds(s, [{ id: 'p08', cues: ['这个差距会被写成损失，', '用来衡量预测有多差。', '反向传播算出参数怎样影响损失，', '优化器再据此小幅调整参数，', '不断重复这个过程，', '模型才逐渐学会预测。'] }]), []);
+});
+
 test('a silent film writes captions: no advice about how sentences run', () => {
   const s = sb([{ id: 'p01', section: '计算层', say: '', beats: [] }]);
   assert.deepEqual(kinds(s, [{ id: 'p01', cues: ['常见大模型有多个计算层。', '每层先汇集上下文信息。', '再由前馈网络变换表示。', '也就是继续加工这些数值。'] }], false), []);

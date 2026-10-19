@@ -20,8 +20,8 @@ const CJK = /[㐀-鿿]/;
 const ENDS = /[。！？!?.…]["”’）)]*$/;
 
 // words that carry reasoning (a cause, a consequence, a turn, a condition, a test)
-const LINKS_ZH = /因为|所以|但是?|可是|不过|然而|而是|却|如果|要是|假如|假设|只要|只有|除非|于是|因此|结果|这样一来|这样|这就|也就是说|就是说|换句话说|意味着|那么|那就|就会|就能|就得|就要|才能|才会|为什么|怎么会|原来|其实|既然|反而|否则|不然|比如|例如|而/;
-const LINKS_EN = /\b(because|so|but|if|then|which|means|that's why|instead|since|therefore|although|though|yet|unless|otherwise|why|how|for example|say|imagine|suppose|until|when|while|whereas|rather)\b/i;
+const LINKS_ZH = /因为|所以|但是?|可是|不过|然而|而是|却|如果|要是|假如|假设|只要|只有|除非|于是|因此|结果|这样一来|这样|这就|也就是说|就是说|换句话说|意味着|那么|那就|就会|就能|就得|就要|才能|才会|才|用来|用于|据此|由此|通过这|为什么|怎么会|原来|其实|既然|反而|否则|不然|比如|例如|而/;
+const LINKS_EN = /\b(because|so that|so|thus|thereby|but|if|then|which|means|that's why|to make|to keep|instead|since|therefore|although|though|yet|unless|otherwise|why|how|for example|say|imagine|suppose|until|when|while|whereas|rather)\b/i;
 // small print at a page's close
 const CAVEAT_ZH = /不保证|不能保证|无法保证|并不保证|并非|不一定|未必|不代表|不等于|不能证明|并不证明|仍需|仍要|还要核|仍在研究|也可能|可能会|不构成|风险/;
 const CAVEAT_EN = /\b(not guarantee|no guarantee|doesn't guarantee|does not guarantee|doesn't mean|does not mean|may not|might not|not always|still being studied|not advice|at your own risk)\b/i;

@@ -324,21 +324,41 @@ export class Director {
     this.state.stage = 'script'; this.save();
     this.serverMeta();
     const s = await this.session('planner', plannerSystem(this.o.style, this.o.brief.preferences, this.o.brief.styleNotes, this.o.brief.brand), MAX.planTurns, this.state.planner);
+    this.prefillPages();
     let r = await this.send(s, scriptPrompt(feedback, this.o.brief) + this.unseen('planner'));
     this.state.planner = s.ref; this.save();
     r = await this.scriptComplete(s, r);
-    // read the narration as a listener hears it, once, before any of it is voiced; then check it is whole again
-    const found = await this.narrationFindings();
-    if (found.length) {
+    // read the narration as a listener hears it before any of it is voiced; send it back at most twice, re-checking whole
+    let found = await this.narrationFindings();
+    for (let pass = 0; found.length && pass < 2; pass++) {
       this.emit({ type: 'note', text: this.say('顺着讲一遍口播，有几处听起来像在念提纲，让导演再改一下', 'Reading the narration aloud: a few lines sound like reading out slides, so the director is revising them') });
       r = await this.send(s, narrationFixPrompt(found, this.o.brief));
       r = await this.scriptComplete(s, r);
+      found = await this.narrationFindings();
     }
+    // a beat anchor that still cannot be fixed falls back to its line's start; say so rather than silently timing early
+    const unfixed = found.filter((f) => f.level === 'fix');
+    if (unfixed.length) this.emit({ type: 'note', text: this.say(`还有 ${unfixed.length} 处画面和口播没对上，先继续制作：这些动作可能比念到的词早一点出现`, `${unfixed.length} beat${unfixed.length > 1 ? 's' : ''} still wait for a line that is not there; going on, those changes may appear a little early`) });
     const check = await this.project.scriptCheck();
     await this.commit(this.say('口播', 'Narration'));
     await s.close();
     this.state.stage = 'narrate'; this.save();
     this.emit({ type: 'stage', stage: 'script', status: 'done', detail: check.out.split('\n').pop() });
+  }
+
+  /** Give script.js one empty entry per storyboard page (id, section, a short title). The planner then fills cues; an
+   *  edit against the template's own opening page, when it misses, used to leave the template's "hello" page in a film. */
+  private prefillPages() {
+    let src: string;
+    try { src = this.project.read('script.js'); } catch { return; }   // no skeleton yet: nothing to fill
+    if (!/const PAGES = \[[\s\S]*?\n  \];/.test(src)) return;
+    const sb = this.project.storyboard();
+    const esc = (x: string) => x.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const titleOf = (sec: string) => esc(sec.split(/[:：]/)[0].trim().slice(0, 8));
+    const pages = sb.pages.map((p) => `    { id: '${p.id}', section: '${esc(p.section)}', title: '${titleOf(p.section)}', cues: [\n    ] },`).join('\n');
+    src = src.replace(/const PAGES = \[[\s\S]*?\n  \];/, `const PAGES = [\n${pages}\n  ];`);
+    src = src.replace(/(\btitle: ')[^']*(')/, `$1${esc(sb.title)}$2`);   // first title: is META's, before the PAGES block
+    this.project.write('script.js', src);
   }
 
   /** The narration as the planner left it, made whole: the server's META put back, the script readable, a line for every
@@ -351,8 +371,10 @@ export class Director {
       if (check.code) this.fail('script', this.say(`口播脚本有错：`, `The narration script has an error: `) + `${check.err || check.out} ${r.error ?? ''}`);
       // the pages drawn are the narration's: a turn that ended before every storyboard page had its words made a
       // one-page film of an eight-page storyboard, green all the way. Ask for the rest; stop if they still don't come.
-      const narrated = new Set((await this.project.timeline()).pages.map((p) => p.id));
-      const missing = this.project.storyboard().pages.map((p) => p.id).filter((id) => !narrated.has(id));
+      const tl = await this.project.timeline();
+      const narrated = new Set(tl.pages.map((p) => p.id));
+      const empty = new Set(tl.pages.filter((p) => Array.isArray(p.cues) && p.cues.length === 0).map((p) => p.id));
+      const missing = this.project.storyboard().pages.map((p) => p.id).filter((id) => !narrated.has(id) || empty.has(id));
       if (!missing.length) return r;
       if (ask === MAX.scriptFix) this.fail('script', this.say(`口播没有写完：分镜里的 ${missing.join('、')} 没有口播`, `The narration is unfinished: ${missing.join(', ')} of the storyboard ha${missing.length > 1 ? 've' : 's'} no narration`) + (r.error ? ` (${r.error})` : ''));
       r = await this.send(s, `script.js has no narration for ${missing.join(', ')}: every page of storyboard.json needs its entry in PAGES, in the storyboard's order, with the same id. Add the missing pages and keep the ones already written, then run node engine/tools/script.mjs and stop. ` + replyNote(this.o.brief.replyLang, this.o.brief.lang));

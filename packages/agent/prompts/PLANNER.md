@@ -87,7 +87,7 @@ When you finish, the server checks the storyboard mechanically; if it finds prob
 
 ## Stage 2: narration → `script.js`
 
-- The file is at the project root and already has a skeleton: change `META.title` and `PAGES`. The server sets `style`, `voice`, `gap`, `pace` and `name` in `META`; do not change them.
+- The file is at the project root and already holds an entry for every storyboard page (`id` and `section` filled in, with empty cues): fill in each page's `title` and `cues`. The server sets `style`, `voice`, `gap`, `pace` and `name` in `META`; do not change them. Leave no page with empty cues, and keep the ids and order.
 - Each page is `{ id, section, title, cues }`: `id` and `section` match the storyboard; `title` is the page's short heading (at most 8 Chinese characters or 5 English words; usually the section's name).
 - **Cut each page's approved `say` into cues; don't write it again.** A cue is one subtitle line: a phrase cut at a natural clause boundary (the stage message gives its size), not necessarily a whole sentence. Keep the words of `say`; change a phrase only where it doesn't speak well, or where a beat needs its word in a line, and add nothing new. When the user changed the storyboard, follow their change first.
 - **Punctuation is how it sounds.** A voiced page is read as one take: a cue that ends with a comma runs on into the next, a full stop is a real stop. End a cue with a full stop only where its sentence ends. When an animation needs time after a line, write `{ t: 'the line', hold: 0.6 }`.
