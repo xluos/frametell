@@ -1,0 +1,8 @@
+/* Chat Screen */
+:root { --ink: #95e3a6; --soft: #ade7bc; --muted: #beeacb; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
+#frame { background: #dcefe6; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
+.chrome::before { background: linear-gradient(to bottom, #dcefe6 0%, #dcefe6F0 55%, transparent 100%); }
+
+.subs span { color: #95e3a6; background: rgba(255,255,255,0.92); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }

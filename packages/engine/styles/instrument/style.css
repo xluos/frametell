@@ -1,0 +1,10 @@
+/* Mechanism */
+:root { --ink: #26262a; --soft: #6e6e71; --muted: #a2a2a3; --band-color: rgba(255,255,255,0.92); --latin: 'JetBrains Mono', 'SF Mono', monospace; }
+#frame { background: #fbfbfa; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
+.chrome::before { background: linear-gradient(to bottom, #fbfbfa 0%, #fbfbfaF0 55%, transparent 100%); }
+.code { color: #26262a; }
+.code .kw { color: #d3d3ce; } .code .str { color: #ff4f00; } .code .num { color: #ff4f00; } .code .fn { color: #d3d3ce; }
+.code .cm { color: #a2a2a3; }
+.subs span { color: #26262a; background: rgba(255,255,255,0.92); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }

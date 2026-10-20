@@ -1,0 +1,14 @@
+/* Blueprint */
+:root { --ink: #ffffff; --soft: #bcc8d9; --muted: #7d95b6; --band-color: rgba(12,12,14,0.92); --latin: 'JetBrains Mono', 'SF Mono', monospace; }
+#frame { background: #204981; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.34) 100%); }
+svg.ink path[fill="none"][opacity="0.13"] { display: none; }
+svg.ink [filter="url(#wc)"] { filter: none; }
+svg.ink g.mark path { opacity: 0.22; }
+.tx.latin { font-weight: 600; letter-spacing: 0; }
+.chrome::before { background: linear-gradient(to bottom, #204981 0%, #204981F0 55%, transparent 100%); }
+.code { color: #ffffff; }
+.code .kw { color: #ffd866; } .code .str { color: #ffd866; } .code .num { color: #ff6b5b; } .code .fn { color: #ff6b5b; }
+.code .cm { color: #7d95b6; }
+.subs span { color: #F4F2EC; background: rgba(10,10,12,0.82); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.32), inset 0 0 0 1.5px rgba(255,255,255,0.08); }

@@ -1,0 +1,10 @@
+/* Transit Map */
+:root { --ink: #e1251b; --soft: #e86c64; --muted: #ee9e97; --band-color: rgba(255,255,255,0.92); --latin: 'JetBrains Mono', 'SF Mono', monospace; }
+#frame { background: #f7f6f1; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
+.chrome::before { background: linear-gradient(to bottom, #f7f6f1 0%, #f7f6f1F0 55%, transparent 100%); }
+.code { color: #e1251b; }
+.code .kw { color: #0a6fc2; } .code .str { color: #0a6fc2; } .code .num { color: #00965e; } .code .fn { color: #00965e; }
+.code .cm { color: #ee9e97; }
+.subs span { color: #e1251b; background: rgba(255,255,255,0.92); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }

@@ -1,0 +1,8 @@
+/* Clay Studio */
+:root { --ink: #f39a3e; --soft: #f4af6c; --muted: #f4bd8d; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
+#frame { background: #f5d7c6; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
+.chrome::before { background: linear-gradient(to bottom, #f5d7c6 0%, #f5d7c6F0 55%, transparent 100%); }
+
+.subs span { color: #f39a3e; background: rgba(255,255,255,0.92); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }

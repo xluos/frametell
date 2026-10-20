@@ -1,0 +1,8 @@
+/* Crayon Picture Book */
+:root { --ink: #e2453a; --soft: #e97f71; --muted: #efa899; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
+#frame { background: #f8f0dd; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
+.chrome::before { background: linear-gradient(to bottom, #f8f0dd 0%, #f8f0ddF0 55%, transparent 100%); }
+
+.subs span { color: #e2453a; background: rgba(255,255,255,0.92); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }

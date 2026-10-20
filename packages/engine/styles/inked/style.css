@@ -1,0 +1,8 @@
+/* Inked Gadgets */
+:root { --ink: #93d3b0; --soft: #b3ddc3; --muted: #cae3d0; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
+#frame { background: #f2efe7; color: var(--ink); }
+#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
+.chrome::before { background: linear-gradient(to bottom, #f2efe7 0%, #f2efe7F0 55%, transparent 100%); }
+
+.subs span { color: #93d3b0; background: rgba(255,255,255,0.92); border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
