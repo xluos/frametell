@@ -21,13 +21,38 @@ const grammar = (style: string) => {
 };
 
 /** fallback names; the panel shows its own translated names for these ids */
-export const STYLES: { id: string; name: string; summary: string }[] = [
-  { id: 'editorial', name: 'Editorial explainer', summary: 'A visual lesson with a palette, typography and composition designed for each film; follows your visual notes' },
-  { id: 'warm-story', name: 'Warm illustration', summary: 'Warm flat illustration with one metaphor object carried through the film; for investing, everyday life and psychology' },
-  { id: 'study', name: 'Quiet study', summary: 'Hand-drawn on paper, ink lines and light washes; for books, history and methods' },
-  { id: 'whiteboard', name: 'Whiteboard', summary: 'Marker on a whiteboard, drawn while explaining; for breaking down concepts, business models, methods and processes' },
-  { id: 'chalkboard', name: 'Chalkboard', summary: 'Chalk on a dark green board; for maths, physics, history and other step-by-step classroom explanations' },
-  { id: 'tech-dark', name: 'Dark technical', summary: 'Clean architecture diagrams and code on dark graphite; for software, AI and how systems work' },
+export const STYLES: { id: string; name: string; summary: string; swatch: string[] }[] = [
+  { id: 'vector', name: 'Vector Science', summary: "Glowing flat worlds on a midnight sky, and a tiny bird to show you the scale", swatch: ["#120A3C", "#32BAEE", "#FFA62B", "#FF5D8F"] },
+  { id: 'math', name: 'Math animation', summary: "Precise lines and typeset formulas on black: one colour per variable, terms that slide into the next line, a circle that unrolls into a triangle", swatch: ["#0E0F12", "#ECEEF2", "#58B9E6", "#F4D66B"] },
+  { id: 'ink-wash', name: 'Ink wash', summary: "A few strokes of ink and the empty paper becomes sky, water and distance", swatch: ["#F3ECDC", "#1A1714", "#8A8178", "#B8321F"] },
+  { id: 'swiss', name: 'Swiss Grid', summary: "Giant type lands on the beat across a strict grid; one signal red for the point", swatch: ["#F3F1EC", "#111111", "#E3321D", "#8A8984"] },
+  { id: 'pop', name: 'Pop comic', summary: "Ben-Day dots, heavy ink and a POW! on every big idea: your explainer as a 1960s comic that moves", swatch: ["#F4E6C2", "#E3221B", "#FFD60A", "#1F5FD1"] },
+  { id: 'neon', name: 'Neon Noir', summary: "Neon tubes flicker on with the voice, numbers glitch into place, a grid floor runs to the horizon", swatch: ["#07060D", "#FF2E88", "#22E5FF", "#9B5CFF"] },
+  { id: 'watercolor', name: 'Watercolor', summary: "Pencil first, then colour blooms on the beat and dries with soft dark edges", swatch: ["#FBF8F1", "#3C7DBA", "#5B9A5A", "#F0BF45"] },
+  { id: 'broadsheet', name: 'Broadsheet', summary: "The financial front page come alive: salmon newsprint, serif headlines, charts that land on the spoken word", swatch: ["#FFF1E5", "#990F3D", "#0F5499", "#262A33"] },
+  { id: 'isotype', name: 'Isotype', summary: "One figure stands for a million people: rows of flat pictograms count themselves in, then walk across to show the shift", swatch: ["#F1EADA", "#1F1D1A", "#B23C29", "#2F5B86"] },
+  { id: 'clay', name: 'Clay Studio', summary: "Plasticine buddies and props move frame by frame on a pastel studio set: soft, thumb-pressed, with real shadows", swatch: ["#F5D7C6", "#F39A3E", "#4D9AD9", "#F7C843"] },
+  { id: 'collage', name: 'Paper Collage', summary: "Your argument laid out on an investigator\\'s desk: cuttings, halftone prints, red marker, highlighter and thread", swatch: ["#E2DBCD", "#1D1B19", "#B8433F", "#DACF08"] },
+  { id: 'one-line', name: 'One line', summary: "A pen that never leaves the paper: a hand lets go, and the same line redraws itself as a bird", swatch: ["#F5F0E7", "#1C1A17", "#D9694E", "#93B4CF"] },
+  { id: 'tech-dark', name: 'Tech dark', summary: "Architecture and code on graphite, with data that really flows", swatch: ["#15171A", "#E8E6E1", "#4FBFAE", "#E3A64B"] },
+  { id: 'screencast', name: 'Screencast', summary: "A polished product demo: the cursor glides to a control and clicks, the camera eases in as the app answers, then pulls back to show the result", swatch: ["#E4E8F0", "#FFFFFF", "#151823", "#4F55F1"] },
+  { id: 'isometric', name: 'Isometric', summary: "A tiny 30\u00b0 world where blocks rise from the ground and goods flow between stations", swatch: ["#EEF0F8", "#FFFFFF", "#9D8CF5", "#FF6B3D"] },
+  { id: 'blueprint', name: 'Blueprint', summary: "White lines drafted on cyanotype blue: dimensions, exploded parts, a red pencil on the point", swatch: ["#0F3B78", "#F2F7FF", "#FFD866", "#FF6B5B"] },
+  { id: 'instrument', name: 'Mechanism', summary: "Real machines, cut open: engines, gearboxes, brakes. Parts settle into place, pistons and gears run, and the readout moves with the mechanism", swatch: ["#FBFBFA", "#26262A", "#D3D3CE", "#FF4F00"] },
+  { id: 'inked', name: 'Inked Gadgets', summary: "A hand-inked isometric gadget that does each step as it is named: the door opens, the water boils, the working part\\'s label lights up", swatch: ["#F2EFE7", "#93D3B0", "#F4B829", "#41538F"] },
+  { id: 'engraving', name: 'Copperplate Engraving', summary: "The burin cuts the specimen line by line, figure labels arrive on their leaders, then hand-laid watercolour floods the lines", swatch: ["#F1E8D2", "#1E1712", "#B4513C", "#557A98"] },
+  { id: 'midcentury', name: 'Mid-century Cartoon', summary: "A 1950s classroom film: geometric presenters and off-register flat colour, and every step slams in on a spinning sunburst", swatch: ["#F6EDDA", "#E3AE36", "#3A9A94", "#D9553A"] },
+  { id: 'crayon', name: 'Crayon Picture Book', summary: "Wax crayon scribbles colour onto toothy paper, round little friends act out the idea, and the page turns like a book", swatch: ["#F8F0DD", "#E2453A", "#F7C62E", "#3A8BDB"] },
+  { id: 'mascot', name: 'Mascot Explainer', summary: "Cute sticker cartoons on cream paper and a little animal host who does the maths with you: coins drop into the pouch, the total counts up, and the verdict stamp slams down", swatch: ["#FFF8EC", "#FF9A3C", "#3DB57D", "#4A9BE0"] },
+  { id: 'chat', name: 'Chat Screen', summary: "The story plays out on a phone: messages pop in with the voice, the typing dots hang, and at the turn a message is unsent", swatch: ["#DCEFE6", "#95E3A6", "#FFFFFF", "#E5484D"] },
+  { id: 'manga', name: 'Manga', summary: "G-pen ink, screentone and speed lines: panels cut in one by one, and the moment it clicks slams to full frame with a giant DON", swatch: ["#FAFAF8", "#111111", "#9A9A9A", "#D7262E"] },
+  { id: 'old-map', name: 'Antique Map', summary: "An old chart on parchment: a route inks itself across the sea with a little ship sailing at its head, and a realm\\'s colour spreads over the land year by year", swatch: ["#EBDDBC", "#2B1D12", "#B0442C", "#5E7F55"] },
+  { id: 'metro', name: 'Transit Map', summary: "A train draws each coloured line as it runs; every station lights up on its spoken word, and interchanges pulse where lines meet", swatch: ["#F7F6F1", "#E1251B", "#0A6FC2", "#00965E"] },
+  { id: 'warm-story', name: 'Warm illustration', summary: "Warm flat illustration, one metaphor carried through the film", swatch: ["#F4E7D3", "#C8603C", "#E0A23B", "#7E9F7A"] },
+  { id: 'whiteboard', name: 'Whiteboard', summary: "A marker that draws as it talks, until the idea is obvious", swatch: ["#F7F8F7", "#1E2226", "#D0342C", "#1F5DBA"] },
+  { id: 'chalkboard', name: 'Chalkboard', summary: "Chalk on a green board, worked out one step at a time", swatch: ["#223029", "#F1ECE1", "#F3DD86", "#F0A3A0"] },
+  { id: 'study', name: 'Quiet study', summary: "Hand-drawn on paper, ink lines and light washes; for books, history and methods", swatch: ['#F4EEE2', '#2B2520', '#3D6D93', '#C0782E'] },
+  { id: 'editorial', name: 'Editorial explainer', summary: 'A visual lesson with a palette, typography and composition designed for each film; follows your visual notes', swatch: ['#F7F4ED', '#242724', '#24766F', '#B54F3C'] },
 ];
 
 /**
