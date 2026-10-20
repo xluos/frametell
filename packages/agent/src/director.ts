@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { narrate, scriptData, type TtsProvider } from '@frametell/voice';
 import { checkNarration, type NarrationFinding } from './narration.js';
+import { recurringIssues } from './continuity.js';
 import { Project, childCmd, projectFiles, type LintIssue, type LintKind, type PageTiming, type Storyboard, type Renderer } from './project.js';
 import { FLAG, VERDICT, fixPrompt, langNote, voiceNote, pagePrompt, pageSystem, plannerSystem, replyNote, reviewPrompt, reviewerPrompt, reviewerSystem, scriptPrompt, narrationFixPrompt, storyboardFixPrompt, storyboardPrompt, verdictAgain, type Brief, type Problem } from './prompts.js';
 import { addUsage, emptyUsage, type AgentRuntime, type AgentSession, type SessionOptions, type Thinking, type TokenUsage, type TurnResult } from './runtime/types.js';
@@ -303,7 +304,7 @@ export class Director {
       if (j.lang !== (this.o.brief.lang ?? 'zh')) this.project.write('storyboard.json', JSON.stringify({ ...j, lang: this.o.brief.lang ?? 'zh' }, null, 2));
     } catch {}
     for (let round = 1; ; round++) {
-      const issues = [...this.project.storyboardIssues(), ...this.lookIssues()];
+      const issues = [...this.project.storyboardIssues(), ...this.lookIssues(), ...this.recurring()];
       this.emit({ type: 'storyboard_check', round, issues });
       const reds = issues.filter((i) => i.level === 'red');
       if (!reds.length || round > MAX.storyboardFix) break;
@@ -390,6 +391,11 @@ export class Director {
       if (stopped(e)) throw e;
       return [];
     }
+  }
+
+  /** the storyboard's recurring objects: what is missing or too thin to redraw the same way on another page */
+  private recurring(): { level: 'red' | 'yellow'; msg: string }[] {
+    try { return recurringIssues(this.project.storyboard()); } catch { return []; }   // unreadable: reported already
   }
 
   /** a designed style's film (its style has no look of its own): what its storyboard still lacks of the look */

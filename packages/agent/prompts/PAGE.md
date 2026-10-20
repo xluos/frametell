@@ -28,6 +28,7 @@ You turn **one page** of the storyboard into drawing code, `pages/<id>.js`. You 
 
 ## How it moves
 
+- **The film is one picture that changes.** When the message lists recurring objects, draw each exactly as its look says, in the same place, so it is recognisably the same thing as on the other pages. When it says where the previous page left off, have what carries over already there, finished, at the first frame (give it an `at` early enough that its drawing is complete before the page starts, e.g. `at: -1`), then make this page's change to it. Never wipe it and trace it again from nothing.
 - **Make the explanation visible.** Keep the running example identifiable by its label, shape and colour. When a condition changes, change that same object, quantity or path; keep enough of its previous state visible to compare. Do not substitute a new labelled box for each sentence. A hypothetical demonstration must remain visibly labelled as such.
 - **Compose for the reasoning.** Choose a large worked example, an asymmetric diagram, an annotated object or a before/after as appropriate. Alternate wide context and close detail when the explanation calls for it. Keep typography and colour roles consistent across these compositions. Use space to isolate the key change rather than filling it with decorative panels.
 

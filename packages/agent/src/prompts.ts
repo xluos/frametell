@@ -9,6 +9,7 @@ import type { PageTiming, Storyboard, LintIssue } from './project.js';
 import type { AnswerTool } from './runtime/types.js';
 
 import { pagePack } from './pagepack.js';
+import { continuityNote, recurringNote } from './continuity.js';
 import { brandFilesOn, brandPageNote, brandReviewNote, brandSection, type BrandBrief } from './brand.js';
 
 // found through the package itself, so it still resolves when the code is bundled (the desktop app)
@@ -169,7 +170,7 @@ ${(p?.beats || []).map((b, i) => `  ${i + 1}. [${b.at}] ${b.object} — ${b.acti
 
 ## This page's narration and timing (real voice)
 The page lasts ${(t.end - t.start).toFixed(2)}s; its narration ends at ${(t.speechEnd - t.start).toFixed(2)}s (P.endT).
-${t.cues.map((c) => `- c${c.i}: at ${c.at}s in the page, "${c.text}"`).join('\n')}${brandPageNote(brandFilesOn(brand, sb.pages, id), brand?.emphasis)}
+${t.cues.map((c) => `- c${c.i}: at ${c.at}s in the page, "${c.text}"`).join('\n')}${brandPageNote(brandFilesOn(brand, sb.pages, id), brand?.emphasis)}${recurringNote(sb, id)}${continuityNote(sb, id)}
 
 ${revising ? `pages/${id}.js is already written; stop once the change below is made in it and say in one sentence what you changed.` : `Stop once pages/${id}.js is written and say in one sentence what you drew.`}${langNote('page', lang, replyLang)}`;
 }
@@ -215,7 +216,7 @@ export function reviewerPrompt(sb: Storyboard, id: string, t: PageTiming, round:
 ${(p?.beats || []).map((b, i) => `  ${i + 1}. [${b.at}] ${b.object} — ${b.action}${b.text ? `, on-screen text "${b.text}"` : ''}`).join('\n')}
 - The page lasts ${(t.end - t.start).toFixed(1)}s. Narration:
 ${t.cues.map((c) => `  - c${c.i} at ${c.at.toFixed(1)}s: "${c.text}"`).join('\n')}
-${change ? `\nThe user asked for this change to the page: ${change}\nFail the page if the pictures don't show it.\n` : ''}${brandReviewNote(brand, brandFilesOn(brand, sb.pages, id))}
+${change ? `\nThe user asked for this change to the page: ${change}\nFail the page if the pictures don't show it.\n` : ''}${brandReviewNote(brand, brandFilesOn(brand, sb.pages, id))}${recurringNote(sb, id)}${continuityNote(sb, id)}
 ## The checker
 ${must.length ? `Must-fix (already sent to the artist):\n${lintLines(must)}` : 'Nothing must be fixed.'}
 ${advice.length ? `Advice (a measurement; fail on it only if the picture shows a problem):\n${lintLines(advice)}` : ''}

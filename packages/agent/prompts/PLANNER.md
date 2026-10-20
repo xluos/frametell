@@ -62,6 +62,9 @@ The second starts from what you can see, says the natural guess, and gives the c
 {
   "title": "", "summary": "one sentence saying what this film explains", "durationSec": 60,
   "style": "style id (chosen by the server; copy it as is)", "cast": "none | hands | silhouette | characters (only when the style's grammar card draws characters)",
+  "objects": [
+    { "name": "the piggy bank", "look": "a round pink piggy bank, centre-left of the frame, coin slot on top, the running total written on its side in blue", "pages": ["p01", "p02", "p04"] }
+  ],
   "pages": [{
     "id": "p01", "section": "a short chapter name", "say": "this page's narration, in full, as it will be spoken", "core": true,
     "beats": [
@@ -75,8 +78,10 @@ The second starts from what you can see, says the natural guess, and gives the c
 - **`say` is the narration itself**, written in full the way the voice will speak it and the way "How a teacher talks" describes. The user approves these words; the next stage only cuts them into subtitle lines. Its length sets the page's length: about 4 Chinese characters, or 2.5 English words, per second. A question page may be 30 characters; a worked example 150.
 - **`section` is a chapter**: a short name (2–8 Chinese characters, or 1–4 English words) shared by the consecutive pages of one part, e.g. "注意力" or "Rebalancing". It becomes the film's chapter list in the publishing notes. Never a slide heading made of a topic, a colon and a claim.
 - **Write `say` first, then its beats.** A beat is one visible change on screen, landing when the voice reaches it: `object` is a concrete thing (a noun), `action` is how it moves (a verb), `text` is the on-screen text (each element at most 8 Chinese characters or 5 English words; separate several with `/`), and `at` is a subtitle line of this page's say, counted from zero (`c2`), or a word inside it (`c2:thirty`; in a Chinese film the word as spoken, `c2:三十年`). Count lines as the next stage will cut them: a phrase of up to about 16 Chinese characters or 12 English words, split at a comma or full stop. A beat needs no sentence of its own: several beats can land on the words of one sentence.
+- **`objects` lists what appears on more than one page**, the running example first. Each page is drawn by a different agent that never sees the others, so `look` is the only thing that keeps the object the same: its shape, how its parts are laid out and which part is where (a four-part circle: which asset sits in which quadrant), its labels and where they sit, its colours, and its place in the frame. A beat's `object` uses the same name. Any film of three pages or more has at least one.
 - `object` must not be a layout word such as title, card, bullet point, background, icon or text; `action` must not be a catch-all such as appear, show, fade in or list one by one.
 - Each part of the picture arrives when the voice names it, never all of it as the page opens. Plan a beat every 2–4 seconds of narration, so the screen keeps moving with the voice.
+- **A page continues the last one.** When a recurring object carries over, the page opens with it as the previous page left it and changes it; it does not clear the board and draw it again from a blank shape. Its first beat is the change, not a redrawing of what the viewer already has.
 - At least 2 beats per page; no more than 30% of beats may be text-led; the first and last pages open and close on an object, never on a centred quote card.
 - Every number on screen must be found in the material.
 - Never draw faces: when a person is needed, show only hands, a back or a silhouette, or let an object take the lead. The one exception is a style whose grammar card says it draws characters with faces (a cartoon, a comic, a game): then the cast is those characters, as the card describes them.

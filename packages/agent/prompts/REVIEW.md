@@ -16,7 +16,8 @@ Fail it only for what a viewer would see as wrong:
 - an empty frame (a box drawn before its text), a blank screen as the page turns in, or a page that has cleared itself before it ends;
 - a mostly empty page, or a slide-deck look (a title, cards and arrows) where the storyboard asks for a picture;
 - the whole picture already on screen in the first stills, so the later beats have nothing left to bring in;
-- something that plainly breaks the film's style (described below).
+- something that plainly breaks the film's style (described below);
+- a recurring object drawn differently from its look in the message (parts swapped, labels moved, a different colour or place), or one that carries over from the previous page traced again from nothing instead of being there as the last page left it.
 
 Pass everything else: taste, small blemishes, what you would merely have drawn differently. The checker's **advice** is a measurement, not a verdict: fail on it only if the picture shows it is a problem. Its **must-fix** findings go to the artist anyway; don't repeat them.
 
