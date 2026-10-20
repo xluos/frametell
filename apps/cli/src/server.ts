@@ -11,6 +11,7 @@ import { serve } from '@hono/node-server';
 import { streamSSE } from 'hono/streaming';
 import { getCookie } from 'hono/cookie';
 import { DATA_DIR, Studio, tr, type LoggedEvent, type NewProjectInput } from '@frametell/core';
+import { ENGINE_DIR } from '@frametell/engine/tools/project.mjs';
 
 const UI_DIR = path.join(path.dirname(createRequire(import.meta.url).resolve('@frametell/ui/package.json')), 'dist');
 const TYPES: Record<string, string> = {
@@ -110,6 +111,11 @@ export function createServer(studio = new Studio(), opts: { token?: string } = {
       }
       off();
     });
+  });
+
+  app.get('/api/styles/:id/poster.jpg', (c) => {
+    const f = path.join(ENGINE_DIR, 'styles', c.req.param('id'), 'poster.jpg');
+    return f.startsWith(path.join(ENGINE_DIR, 'styles')) && fs.existsSync(f) ? sendFile(c, f) : c.notFound();
   });
 
   app.get('/p/:id/:sig/*', (c) => {

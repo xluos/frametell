@@ -6,6 +6,8 @@ import { createCatalog, PROVIDERS, type ProviderSpec } from '@frametell/models';
 import { bundledSample, ELEVENLABS_DEFAULT_VOICES, ElevenLabsError, elevenLabsTts, listElevenLabsVoices, volcengineTts, VoiceNotFound, VOLCENGINE_VOICES } from '@frametell/voice';
 import { BRAND_DIR, Project, STYLES, cleanBrand, cleanLook, openProjectFile, writeIn, type OpenFile, type Renderer, type Timeline } from '@frametell/agent';
 import { linkProject } from '@frametell/engine/tools/project.mjs';
+import { ENGINE_DIR } from '@frametell/engine/tools/project.mjs';
+const ENGINE_STYLE_DIR = path.join(ENGINE_DIR, 'styles');
 import { DATA_DIR, configFile, patchConfig, publicConfig, type ConfigStore } from './config.js';
 import { Projects } from './runner.js';
 import { checkEnv } from './env.js';
@@ -103,7 +105,14 @@ export class Studio {
     return publicConfig(next);
   }
   env(): EnvCheck[] { return checkEnv(); }
-  styles(): StyleInfo[] { return STYLES; }
+  /** the style catalogue, extended with a still for every style whose pack ships one (the desktop panel renders them
+   *  as film-strip thumbnails the way the hosted studio does; hosted services may still attach their own poster/loop) */
+  styles(): StyleInfo[] {
+    return STYLES.map((s) => {
+      const poster = fs.existsSync(path.join(ENGINE_STYLE_DIR, s.id, 'poster.jpg')) ? `/api/styles/${s.id}/poster.jpg` : undefined;
+      return poster ? { ...s, poster } : s;
+    });
+  }
 
   /** the providers Studio offers, in the order it shows them (the user's own endpoints come from settings) */
   providers(): ProviderSpec[] { return PROVIDERS; }

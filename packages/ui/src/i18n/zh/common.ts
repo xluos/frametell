@@ -55,7 +55,8 @@ export default {
     'warm-story': "暖调扁平插画，一个比喻物贯穿，适合投资、心理和生活",
     'whiteboard': "白板马克笔边讲边画，适合概念拆解和流程方法",
     'chalkboard': "深绿黑板粉笔推导，适合数学、物理和课堂",
-    study: '安静书房'
+    study: '安静书房',
+    editorial: '知识杂志'
   },
   /** 内置风格的一句话说明；不在这里的风格用服务端给的说明 */
   styleSummaries: {

@@ -56,7 +56,8 @@ const en: typeof zh = {
     'warm-story': "Warm flat illustration, one metaphor carried through the film",
     'whiteboard': "A marker that draws as it talks, until the idea is obvious",
     'chalkboard': "Chalk on a green board, worked out one step at a time",
-    study: 'Quiet study'
+    study: 'Quiet study',
+    editorial: 'Editorial explainer'
   },
   styleSummaries: {
     'vector': "Glowing flat worlds on a midnight sky, and a tiny bird to show you the scale",
