@@ -22,7 +22,7 @@ ENGINE.visual('p22', (P) => {
 | `P.text(str, { x, y, size, color, w, align:'c', font:'hand'\|'latin'\|'mono', weight, at, cps, mode, lh })` | Handwritten character by character (`cps` characters a second); `mode:'fade'` fades the block in, `'words'` writes fast. Markup: `{r:red text}` (r/b/g/o/p/m/s/k), `**bold**`, `` `mono` ``, `\n`. `raw:true` turns markup off |
 | `P.title(str, { accent })` | Page title, top left, with a wavy underline |
 | `P.box(x,y,w,h,{ fill, color, r, sw, dur, texture:false, rough })` / `rect` / `circle(cx,cy,d)` / `ellipse` / `line` / `path(d)` / `curve(pts)` | Shapes drawn stroke by stroke |
-| `P.arrow(x1,y1,x2,y2,{ bend, head, dashed, single })` | Hand-drawn arrow |
+| `P.arrow(x1,y1,x2,y2,{ bend, head, dashed, single })` | Hand-drawn arrow; `bend` is a fraction of its length (0.1–0.4 a gentle curve, negative the other way), not pixels |
 | `P.ring(cx,cy,w,h)` / `P.underline(x,y,w)` / `P.mark(x,y,w,h)` / `P.check(x,y)` / `P.cross(x,y)` | Circling, underline, highlighter, tick, cross |
 | `P.markSpan(t,i0,i1)` / `ringSpan` / `underSpan` | Highlight / circle / underline characters i0–i1 of text already written |
 | `P.code(lines, { x, y, w, size, at, cps, label })` → `.hl(row, at, { n, color })` | Code card (auto-highlighted); rows can be highlighted |

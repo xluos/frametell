@@ -148,6 +148,17 @@ export async function lintPages(page, { L, pages, step = 0.5, minFont = 24, dete
           if (b.x0 < 40 || b.x1 > 1880 || b.y0 < 30 || b.y1 > 1060) out.push({ kind: 'off-canvas', level: 'error', msg: `off-canvas/edge: "${b.txt}" box ${b.x0|0},${b.y0|0}–${b.x1|0},${b.y1|0}`, data: { text: b.txt } });
           else if (b.y1 > 905) out.push({ kind: 'subtitle-band', level: 'error', msg: `subtitle band (y>905): "${b.txt}" bottom ${b.y1|0}`, data: { text: b.txt } });
         }
+        // Annotation strokes (arrows, rings, underlines, ticks, crosses) in world units, before the camera: one that runs
+        // far past the stage was given a wrong size (an arrow's bend in pixels once threw blue lines across a whole page).
+        // World units, so a camera pan or push never trips it; a margin, so a stroke drawn just past an edge doesn't.
+        for (const g of document.querySelectorAll('#stage g.note')) {
+          if (op(g) < 0.3 || !g.getBBox) continue;
+          let b; try { b = g.getBBox(); } catch { continue; }
+          if (!b.width && !b.height) continue;
+          const M = 400;
+          if (b.x < -M || b.y < -M || b.x + b.width > 1920 + M || b.y + b.height > 1080 + M || b.width > 2300 || b.height > 1500)
+            out.push({ kind: 'off-canvas', level: 'error', msg: `a stroke runs off the frame: an arrow, ring or underline spans ${b.x|0},${b.y|0}–${(b.x + b.width)|0},${(b.y + b.height)|0}; check its size (an arrow's bend is a fraction of its length, 0.1–0.4)`, data: { text: 'stroke' } });
+        }
         // Readability: every visible text node, at the size it actually renders (camera zoom and CSS transforms included).
         const walker = document.createTreeWalker(document.getElementById('stage'), NodeFilter.SHOW_TEXT);
         const small = new Map();

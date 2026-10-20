@@ -224,9 +224,15 @@
     curve(pts, o = {}) { return this.draw([gen.curve(pts, this.ro(o))], o); }
 
     /** Arrow along a straight/bent line or a custom path d. o: { bend, head, dashed } */
+    /** bend: how far the arrow bows, as a fraction of its length (0.1–0.4 is a gentle curve; negative bows the other
+     *  way). A value past ±1.5 is read as pixels of bow, the way people (and models) tend to write it, so `bend: -30`
+     *  bows 30px instead of throwing the curve thousands of pixels off the frame. */
     arrow(x1, y1, x2, y2, o = {}) {
-      const bend = o.bend ?? 0;
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1;
+      const len = Math.hypot(dx, dy) || 1;
+      let bend = o.bend ?? 0;
+      if (Math.abs(bend) > 1.5) bend = bend / len;      // pixels → fraction
+      bend = Math.max(-1, Math.min(1, bend));
       const cx = mx - dy * bend, cy = my + dx * bend;
       const d = o.d || (bend ? `M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}` : `M${x1} ${y1} L${x2} ${y2}`);
       const probe = s('path', { d }, this.svg);
@@ -239,7 +245,7 @@
       const ro = this.ro(Object.assign({ single: true }, o));
       const shaft = gen.path(d, ro);
       const head = gen.path(`M${hx1} ${hy1} L${end.x} ${end.y} L${hx2} ${hy2}`, this.ro(Object.assign({ single: true, rough: 0.6 }, o)));
-      const hnd = this.draw([shaft, head], o);
+      const hnd = this.draw([shaft, head], Object.assign({ cls: 'note' }, o));
       if (o.dashed) hnd.el.querySelectorAll('path')[0].dataset.dashed = '1';
       if (o.dashed) this.dashify(hnd);
       return hnd;
@@ -272,13 +278,13 @@
         const j = 1 + (r() - 0.5) * 0.05 + (i / n) * 0.05;
         pts.push([cx + Math.cos(a) * (w / 2) * j, cy + Math.sin(a) * (hh / 2) * j]);
       }
-      return this.draw([gen.curve(pts, this.ro(Object.assign({ single: true, rough: 0.5, sw: 3 }, o)))], Object.assign({ dur: 0.7 }, o));
+      return this.draw([gen.curve(pts, this.ro(Object.assign({ single: true, rough: 0.5, sw: 3 }, o)))], Object.assign({ dur: 0.7, cls: 'note' }, o));
     }
     underline(x, y, w, o = {}) {
       const pts = [];
       const n = 10;
       for (let i = 0; i <= n; i++) pts.push([x + (w * i) / n, y + Math.sin(i * 1.1) * (o.wave ?? 2.2) + (i / n) * 3]);
-      return this.draw([gen.curve(pts, this.ro(Object.assign({ single: true, rough: 0.4, sw: 3.2 }, o)))], Object.assign({ dur: 0.5 }, o));
+      return this.draw([gen.curve(pts, this.ro(Object.assign({ single: true, rough: 0.4, sw: 3.2 }, o)))], Object.assign({ dur: 0.5, cls: 'note' }, o));
     }
     /** Highlighter swipe behind text. */
     mark(x, y, w, hh, o = {}) {
@@ -294,14 +300,14 @@
       return this.handle(a, g);
     }
     check(x, y, sz = 40, o = {}) {
-      return this.path(`M${x - sz * 0.45} ${y} L${x - sz * 0.1} ${y + sz * 0.38} L${x + sz * 0.5} ${y - sz * 0.45}`, Object.assign({ color: 'green', sw: 4, single: true, rough: 0.6, dur: 0.35 }, o));
+      return this.path(`M${x - sz * 0.45} ${y} L${x - sz * 0.1} ${y + sz * 0.38} L${x + sz * 0.5} ${y - sz * 0.45}`, Object.assign({ color: 'green', sw: 4, single: true, rough: 0.6, dur: 0.35, cls: 'note' }, o));
     }
     cross(x, y, sz = 36, o = {}) {
       const r = sz / 2;
       return this.draw([
         gen.line(x - r, y - r, x + r, y + r, this.ro(Object.assign({ color: 'red', sw: 4, single: true, rough: 0.6 }, o))),
         gen.line(x + r, y - r, x - r, y + r, this.ro(Object.assign({ color: 'red', sw: 4, single: true, rough: 0.6 }, o))),
-      ], Object.assign({ dur: 0.35 }, o));
+      ], Object.assign({ dur: 0.35, cls: 'note' }, o));
     }
 
     /** Fade/slide a plain element in (for things that are not strokes). */
