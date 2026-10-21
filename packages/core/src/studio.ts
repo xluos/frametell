@@ -5,10 +5,9 @@ import path from 'node:path';
 import { createCatalog, PROVIDERS, type ProviderSpec } from '@frametell/models';
 import { bundledSample, ELEVENLABS_DEFAULT_VOICES, ElevenLabsError, elevenLabsTts, listElevenLabsVoices, volcengineTts, VoiceNotFound, VOLCENGINE_VOICES } from '@frametell/voice';
 import { BRAND_DIR, Project, STYLES, cleanBrand, cleanLook, openProjectFile, writeIn, type OpenFile, type Renderer, type Timeline } from '@frametell/agent';
-import { linkProject } from '@frametell/engine/tools/project.mjs';
-import { ENGINE_DIR } from '@frametell/engine/tools/project.mjs';
-const ENGINE_STYLE_DIR = path.join(ENGINE_DIR, 'styles');
+import { linkProject, ENGINE_DIR } from '@frametell/engine/tools/project.mjs';
 import { DATA_DIR, configFile, patchConfig, publicConfig, type ConfigStore } from './config.js';
+import { STYLE_LOOPS } from './style-loops.js';
 import { Projects } from './runner.js';
 import { checkEnv } from './env.js';
 import { applyProxy } from './net.js';
@@ -17,6 +16,8 @@ import type { UserRef, EnvCheck, LoggedEvent, ModelInfo, NewProjectInput, Projec
 import { resolveLocale, tr } from './i18n.js';
 
 export interface MaterialFile { name: string; data: Uint8Array }
+
+const ENGINE_STYLE_DIR = path.join(ENGINE_DIR, 'styles');
 
 /**
  * An ElevenLabs account's voices, by key, for ELEVENLABS_TTL: the list takes seconds to fetch and was fetched every
@@ -110,7 +111,9 @@ export class Studio {
   styles(): StyleInfo[] {
     return STYLES.map((s) => {
       const poster = fs.existsSync(path.join(ENGINE_STYLE_DIR, s.id, 'poster.jpg')) ? `/api/styles/${s.id}/poster.jpg` : undefined;
-      return poster ? { ...s, poster } : s;
+      // the hover loop only plays over a still, so attach it only where there is one
+      const loop = poster ? STYLE_LOOPS[s.id] : undefined;
+      return poster ? { ...s, poster, ...(loop ? { loop } : {}) } : s;
     });
   }
 
