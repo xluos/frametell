@@ -177,7 +177,7 @@ export function Home({ openSettings, prefsStamp }: { openSettings: (section?: st
               </p>
             )}
           </div>
-          <fieldset className="sm:col-span-2">
+          <fieldset className="min-w-0 sm:col-span-2">
             <legend className="fs-label">{t('home.style')}</legend>
             <StylePicker styles={styles.data || []} value={styleId} onChange={setStyle} locked={lockedStyle} />
             {current && <p className="mt-2.5 text-[12.5px] text-ink-3"><span className="font-medium text-ink-2">{styleLabel(current).name}</span> · {styleLabel(current).summary}</p>}

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, LayoutGrid, Lock, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import type { StyleInfo } from '../lib/client';
 import { STYLE_SWATCH, styleLabel } from '../lib/styles';
 import { t } from '../i18n';
 
-// The film's style. When the styles come with pictures (a hosted service's style market gives each a still and a short
-// loop from a real film), a row of 16:9 thumbnails — the chosen style and a few others — ending in one that opens every
-// style in a dialog, grouped free / members; hovering or focusing a thumbnail plays its loop. Without pictures (the
-// desktop app), a row of chips with each style's colours.
+// The film's style. When the styles come with pictures (a still and a short loop from a real film in each style), every
+// style sits in one horizontally scrolling strip of 16:9 thumbnails, like the hosted studio's film strip: scroll it with
+// the wheel, a trackpad, the arrow buttons or the keyboard; hovering or focusing a thumbnail plays its loop. Without
+// pictures, a row of chips with each style's colours.
 
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -25,78 +25,101 @@ export function StylePicker({ styles, value, onChange, locked }: { styles: Style
       </div>
     );
   }
-  return <Wall styles={styles} value={value} onChange={onChange} locked={locked} />;
+  return <Strip styles={styles} value={value} onChange={onChange} locked={locked} />;
 }
 
-/** how many thumbnails the row shows before the one that opens them all */
-const ROW = 4;
+function Strip({ styles, value, onChange, locked }: { styles: StyleInfo[]; value: string; onChange: (id: string) => void; locked: (id: string) => boolean }) {
+  const track = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ start: true, end: false });
 
-function Wall({ styles, value, onChange, locked }: { styles: StyleInfo[]; value: string; onChange: (id: string) => void; locked: (id: string) => boolean }) {
-  const [open, setOpen] = useState(false);
-  // the chosen style always shows, in its place among the first few or in the last slot
-  const row = styles.slice(0, ROW);
-  const chosen = styles.find((s) => s.id === value);
-  if (chosen && !row.includes(chosen)) row[ROW - 1] = chosen;
-  const all = styles.length > ROW;
+  // which ends are reachable decides whether each arrow and fade shows
+  const measure = () => {
+    const el = track.current;
+    if (!el) return;
+    setEdge({ start: el.scrollLeft <= 2, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 });
+  };
+  useEffect(() => {
+    measure();
+    const el = track.current;
+    if (!el) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [styles.length]);
+
+  // the chosen style is always in view: on first paint and whenever it changes (it may come from saved settings)
+  useEffect(() => {
+    const el = track.current;
+    const on = el?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (!el || !on) return;
+    const left = on.offsetLeft - el.offsetLeft, right = left + on.offsetWidth;
+    if (left < el.scrollLeft || right > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({ left: left - (el.clientWidth - on.offsetWidth) / 2, behavior: reduced() ? 'auto' : 'smooth' });
+    }
+  }, [value]);
+
+  // a vertical wheel scrolls the strip sideways (a trackpad's horizontal swipe already does), until it reaches an end,
+  // so the page still scrolls once the strip has nothing more to show
+  useEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    const wheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, []);
+
+  const page = (dir: 1 | -1) => {
+    const el = track.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: reduced() ? 'auto' : 'smooth' });
+  };
+
+  // arrow keys move the choice along the strip, as a radio group should
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const i = styles.findIndex((s) => s.id === value);
+    const next = styles[Math.min(styles.length - 1, Math.max(0, i + (e.key === 'ArrowRight' ? 1 : -1)))];
+    if (next) {
+      onChange(next.id);
+      requestAnimationFrame(() => track.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+    }
+  };
+
+  const arrow = 'absolute top-[calc(50%-14px)] z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-paper/95 text-ink shadow-[var(--fs-shadow-lg)] ring-1 ring-line transition-opacity duration-150 hover:bg-paper-2';
+  // fade the thumbnails out at an edge that has more to scroll to; a mask (not an overlay) so it matches any background
+  const fade = `linear-gradient(to right, ${edge.start ? '#000' : 'transparent'}, #000 40px, #000 calc(100% - 40px), ${edge.end ? '#000' : 'transparent'})`;
+  // contain:inline-size keeps the strip's own width out of its parents' sizing: a fieldset or grid cell would otherwise
+  // grow to fit all thumbnails side by side instead of letting the strip scroll
   return (
-    <>
-      <div className={`grid grid-cols-2 gap-x-2.5 gap-y-3 ${all ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`} role="radiogroup" aria-label={t('home.style')}>
-        {row.map((s) => <Tile key={s.id} s={s} on={value === s.id} locked={locked(s.id)} pick={() => onChange(s.id)} />)}
-        {all && (
-          <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog"
-            className="group flex flex-col gap-1.5 rounded-[12px] text-left outline-none focus-visible:ring-4 focus-visible:ring-accent/25">
-            <span className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-[10px] bg-paper-2 ring-1 ring-line transition-[box-shadow,transform] duration-200 ease-[var(--fs-ease)] group-hover:-translate-y-0.5 group-hover:shadow-[var(--fs-shadow-lg)]">
-              <span className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-px opacity-45 transition-opacity group-hover:opacity-70" aria-hidden>
-                {styles.filter((s) => !row.includes(s)).slice(0, 6).map((s) => <img key={s.id} src={styleLabel(s).poster} alt="" loading="lazy" className="h-full w-full object-cover" />)}
-              </span>
-              <span className="relative inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[12px] font-medium text-white"><LayoutGrid size={12} aria-hidden />{t('home.styleAll', { n: styles.length })}</span>
-            </span>
-            <span className="truncate px-0.5 text-[12.5px] text-ink-2 group-hover:text-ink">{t('home.styleBrowse')}</span>
-          </button>
-        )}
+    <div className="relative -mx-1 min-w-0 [contain:inline-size]">
+      <div ref={track} onScroll={measure} onKeyDown={keys} role="radiogroup" aria-label={t('home.style')}
+        style={{ maskImage: fade, WebkitMaskImage: fade }}
+        className="flex snap-x snap-proximity gap-2.5 overflow-x-auto scroll-px-1 px-1 pb-1.5 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {styles.map((s) => (
+          <div key={s.id} className="w-[148px] shrink-0 snap-start sm:w-[168px]">
+            <Tile s={s} on={value === s.id} locked={locked(s.id)} pick={() => onChange(s.id)} />
+          </div>
+        ))}
       </div>
-      {open && <AllStyles styles={styles} value={value} locked={locked} onClose={() => setOpen(false)} pick={(id) => { onChange(id); setOpen(false); }} />}
-    </>
+      {/* arrows only where there is more to scroll to */}
+      <button type="button" tabIndex={-1} onClick={() => page(-1)} aria-label={t('home.stylePrev')}
+        className={`${arrow} left-0 ${edge.start ? 'pointer-events-none opacity-0' : 'opacity-100'}`}><ChevronLeft size={16} aria-hidden /></button>
+      <button type="button" tabIndex={-1} onClick={() => page(1)} aria-label={t('home.styleNext')}
+        className={`${arrow} right-0 ${edge.end ? 'pointer-events-none opacity-0' : 'opacity-100'}`}><ChevronRight size={16} aria-hidden /></button>
+    </div>
   );
 }
 
-/** every style, in a dialog: free ones first, then the members' */
-function AllStyles({ styles, value, locked, pick, onClose }: { styles: StyleInfo[]; value: string; locked: (id: string) => boolean; pick: (id: string) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => { ref.current?.showModal(); }, []);
-  const groups = [
-    { key: 'free', title: t('home.styleFree'), list: styles.filter((s) => s.tier !== 'member') },
-    { key: 'member', title: t('home.styleMemberGroup'), list: styles.filter((s) => s.tier === 'member') },
-  ].filter((g) => g.list.length);
-  return (
-    <dialog ref={ref} onClose={onClose} aria-labelledby="all-styles-title"
-      onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }}
-      className="m-auto max-h-[min(860px,calc(100vh-48px))] w-[min(1080px,calc(100vw-32px))] max-w-none overflow-hidden rounded-[16px] bg-paper p-0 text-ink shadow-[var(--fs-shadow-lg)] backdrop:bg-black/55 open:animate-[fade_160ms_ease-out]">
-      <div className="flex max-h-[inherit] flex-col">
-        <header className="flex items-center gap-3 border-b border-line px-5 py-3.5">
-          <h2 id="all-styles-title" className="text-[15px] font-semibold">{t('home.styleDialog')}</h2>
-          <span className="text-[12.5px] text-ink-3">{t('home.styleAll', { n: styles.length })}</span>
-          <button type="button" className="fs-icon-btn ml-auto" onClick={() => ref.current?.close()} aria-label={t('home.styleClose')}><X size={16} aria-hidden /></button>
-        </header>
-        <div className="overflow-y-auto px-5 pb-6 pt-4">
-          {groups.map((g) => (
-            <section key={g.key} className="mt-2 first:mt-0" aria-label={g.title}>
-              {groups.length > 1 && <h3 className="mb-2.5 mt-3 text-[12px] font-medium uppercase tracking-[.06em] text-ink-3">{g.title}</h3>}
-              <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 lg:grid-cols-4" role="radiogroup" aria-label={g.title}>
-                {g.list.map((s) => <Tile key={s.id} s={s} on={value === s.id} locked={locked(s.id)} pick={() => pick(s.id)} summary />)}
-              </div>
-            </section>
-          ))}
-        </div>
-      </div>
-    </dialog>
-  );
-}
-
-function Tile({ s, on, locked, pick, summary }: { s: StyleInfo; on: boolean; locked: boolean; pick: () => void; summary?: boolean }) {
+function Tile({ s, on, locked, pick }: { s: StyleInfo; on: boolean; locked: boolean; pick: () => void }) {
   const [hot, setHot] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
-  const { name, poster, loop, summary: line } = styleLabel(s);
+  const { name, poster, loop } = styleLabel(s);
   const play = hot && !!loop && !reduced();
   useEffect(() => {
     const v = video.current;
@@ -104,12 +127,16 @@ function Tile({ s, on, locked, pick, summary }: { s: StyleInfo; on: boolean; loc
     if (play) { v.currentTime = 0; v.play().catch(() => {}); } else v.pause();
   }, [play]);
   return (
-    <button type="button" role="radio" aria-checked={on} onClick={pick}
+    <button type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1} onClick={pick} title={name}
       onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)} onFocus={() => setHot(true)} onBlur={() => setHot(false)}
-      className="group flex flex-col gap-1.5 rounded-[12px] text-left outline-none focus-visible:ring-4 focus-visible:ring-accent/25">
+      className="group flex w-full flex-col gap-1.5 rounded-[12px] text-left outline-none focus-visible:ring-4 focus-visible:ring-accent/25">
       <span className={`relative block aspect-video w-full overflow-hidden rounded-[10px] bg-paper-2 ring-1 transition-[box-shadow,transform] duration-200 ease-[var(--fs-ease)]
         ${on ? 'ring-2 ring-accent shadow-[var(--fs-shadow-lg)]' : 'ring-line group-hover:-translate-y-0.5 group-hover:shadow-[var(--fs-shadow-lg)]'}`}>
-        <img src={poster} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+        {poster
+          ? <img src={poster} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+          : <span className="absolute inset-0 grid place-items-center" aria-hidden>
+              <span className="flex -space-x-1.5">{(STYLE_SWATCH[s.id] || s.swatch || []).map((c) => <span key={c} className="h-5 w-5 rounded-full ring-2 ring-paper" style={{ background: c }} />)}</span>
+            </span>}
         {loop && hot && <video ref={video} src={loop} muted loop playsInline preload="auto" className="absolute inset-0 h-full w-full object-cover" />}
         {locked && (
           <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-1.5 py-[3px] text-[10.5px] font-medium leading-none text-white">
@@ -119,7 +146,6 @@ function Tile({ s, on, locked, pick, summary }: { s: StyleInfo; on: boolean; loc
         {on && <span className="absolute bottom-1.5 right-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-accent-fg shadow-sm" aria-hidden><Check size={12} strokeWidth={3} /></span>}
       </span>
       <span className={`truncate px-0.5 text-[12.5px] ${on ? 'font-medium text-ink' : 'text-ink-2 group-hover:text-ink'}`}>{name}</span>
-      {summary && line && <span className="-mt-1 line-clamp-2 px-0.5 text-[11.5px] leading-snug text-ink-3">{line}</span>}
     </button>
   );
 }
