@@ -16,13 +16,12 @@ export async function buildRecentNative(base) {
 import {setKatexStylesheetUrl,setMathJaxScriptUrl,MathTex,VGroup} from './sources/manim-web/dist/manim-web.browser.js';
 setKatexStylesheetUrl(null); setMathJaxScriptUrl(null);
 // MathTex.copy starts a second asynchronous glyph render AND copies existing children. That doubles an animation's
-// saved point array after its first frame. During native animation snapshotting use the original VGroup copy,
-// which clones the already-rendered glyphs synchronously. Restore the public MathTex.copy method after the seek.
+// saved point array after its first frame. Animations may reference objects not yet in scene.mobjects, so scope
+// the original VGroup copy to the MathTex prototype for the whole synchronous seek, then restore it.
 export function seek(scene, time) {
-  const maths = [...new Set([...scene.mobjects].flatMap(m=>m.getFamily()))].filter(m=>m instanceof MathTex);
-  const copies = maths.map(m=>({m,own:Object.hasOwn(m,'copy'),copy:m.copy}));
-  try { for (const {m} of copies) m.copy=()=>VGroup.prototype.copy.call(m); return scene.seek(time); }
-  finally { for (const {m,own,copy} of copies) if(own)m.copy=copy;else delete m.copy; }
+  const copy = MathTex.prototype.copy;
+  try { MathTex.prototype.copy = function() { return VGroup.prototype.copy.call(this); }; return scene.seek(time); }
+  finally { MathTex.prototype.copy = copy; }
 }`,
     'doodle-anim': doodle + '\nexport {RNG,mulberry32,hashStr,CrowdScene,DoodleChar,Human,Blob,Ghost,Pet,Weirdo,Oddhead,STORIES,poseAt};',
     'chat-rap-video': `export function create(host, script, assets = {}) {

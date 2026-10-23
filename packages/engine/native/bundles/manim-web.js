@@ -191031,14 +191031,14 @@ ${c13.join("\n")}
   mw(null);
   Aw(null);
   function seek(scene, time2) {
-    const maths = [...new Set([...scene.mobjects].flatMap((m10) => m10.getFamily()))].filter((m10) => m10 instanceof VN);
-    const copies = maths.map((m10) => ({ m: m10, own: Object.hasOwn(m10, "copy"), copy: m10.copy }));
+    const copy = VN.prototype.copy;
     try {
-      for (const { m: m10 } of copies) m10.copy = () => H11.prototype.copy.call(m10);
+      VN.prototype.copy = function() {
+        return H11.prototype.copy.call(this);
+      };
       return scene.seek(time2);
     } finally {
-      for (const { m: m10, own, copy } of copies) if (own) m10.copy = copy;
-      else delete m10.copy;
+      VN.prototype.copy = copy;
     }
   }
   return __toCommonJS(manim_web_entry_exports);

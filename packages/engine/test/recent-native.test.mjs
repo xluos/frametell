@@ -14,6 +14,11 @@ test('recent backends load offline in portrait; chat stack effects remain stable
   try {
     for(const id of ['math','mascot','chat','metro']) await t.test(id,async()=>{
       const dir=path.join(temp,id);fs.cpSync(path.join(ENGINE_DIR,'styles',id,'example'),dir,{recursive:true});
+      if(id==='math') {
+        const p=path.join(dir,'pages/p01.js');
+        // Write may introduce a formula later; it need not be in scene.mobjects at the first seek.
+        fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('scene.add(axes,curve,formula);','scene.add(axes,curve);'));
+      }
       fs.cpSync(path.join(dir,'pages'),path.join(dir,'pages-portrait'),{recursive:true});linkProject(dir);
       if(id==='chat') {
         const p=path.join(dir,'pages-portrait/p02.js');fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('"type": "bubble"','"type": "stack", "repeat": 3'));
