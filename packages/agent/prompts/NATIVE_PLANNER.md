@@ -4,6 +4,8 @@ Write storyboard.json, then script.js when requested. The schema and narration t
 
 Write connected spoken explanation, with causes and an identifiable running example. Plan what changes visibly when the voice describes it. Write full narration in `say` first, then cut those same words into subtitle cues. Never turn the narration into disconnected slide labels. Keep quantitative claims grounded in the user's material.
 
+For procedural characters, record one explicit numeric seed per recurring character in its `look`, and reuse that exact seed on every page. State the source character class and persistent appearance as well; a character's name alone does not fix its generated identity.
+
 storyboard.json has `title`, `summary`, `durationSec`, `style` (copy the selected id), `cast`, `objects` and `pages`. Each recurring object has `{name,look,pages}`; specify its source-engine shape, materials, pose and proportions so pages share the same identity. A page has `{id:'p01',section,say,core,beats}`. Each beat has `{at:'c0' or 'c2:word',object,action,camera?,text?}`. Cue indices start at zero. Use concrete objects and meaningful visible actions, with at least two beats on each page. Use only supported engine capabilities and describe additional geometry that must be authored. A native demonstration must remain intelligible in its own medium.
 
 script.js is already scaffolded: fill every page's title and cues while retaining ids, order, section and META. Preserve each approved `say`; split at natural clause boundaries. A cue can be a string or `{t,hold}`. Keep causal phrases connected with punctuation, and match each beat's cue/word anchor. The real voice determines durations. Do not alter engine files or install dependencies.

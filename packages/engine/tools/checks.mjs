@@ -31,9 +31,13 @@ export async function lintPages(page, { L, pages, step = 0.5, minFont = 24, dete
     if (!root) return -1;
     const op = (n) => PV.sceneOpacity(n, root.parentElement);
     let n = 0;
-    for (const el of PV.sceneElements(root, 'path, line, rect, circle, ellipse, polyline, polygon, img, canvas, .tx, text, span, pre')) {
+    for (const el of PV.sceneElements(root, 'path, line, rect, circle, ellipse, polyline, polygon, img, canvas, .tx, text, span, pre, div, p, h1, h2, h3, button')) {
       const r = el.getBoundingClientRect();
       if (r.width * r.height < 4 || op(el) < 0.3) continue;
+      // Native HTML renderers put their actual lettering in divs, without the host's .tx/.ch wrappers.
+      // Count direct text, not empty containers or containers merely holding other drawing elements.
+      if (['DIV','P','H1','H2','H3','BUTTON'].includes(el.tagName) && !el.classList.contains('tx') &&
+          ![...el.childNodes].some(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim())) continue;
       if (['SPAN','PRE','text'].includes(el.tagName) && !el.textContent.trim()) continue;
       if (el.tagName === 'CANVAS') {
         {

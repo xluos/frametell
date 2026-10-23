@@ -7,6 +7,22 @@ import { execFileSync } from 'node:child_process';
 import { createProject } from '../tools/project.mjs';
 import { findChrome } from '../tools/bins.mjs';
 
+test('native HTML lettering counts as visible ink while empty containers remain blank', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'frametell-native-html-'));
+  try {
+    createProject(dir, {style:'chat',title:'Native HTML visibility'});
+    fs.writeFileSync(path.join(dir,'script.js'), `globalThis.SCRIPT={META:{style:'chat',gap:.5},PAGES:['p01','p02','p03'].map(id=>({id,cues:['A real native chat message stays visible.']}))};`);
+    for (const id of ['p01','p02','p03']) fs.writeFileSync(path.join(dir,'pages',id+'.js'), `ENGINE.visual('${id}',P=>P.nativeScene((N,host)=>{
+      ${id === 'p02' ? `const empty=document.createElement('div');empty.style.cssText='width:900px;height:900px';host.root.appendChild(empty);return ()=>{};` : `const chat=N.create(host,{characters:[{id:'a',side:'left',name:'A'}],elements:[{id:'visible',type:'bubble',from:'a',text:'原生文字持续可见',start_ms:-1000,duration_ms:host.duration*1000+3000,camera_mode:'bubble'}]});return {render:t=>chat.renderAt(t*1000),dispose:()=>chat.dispose()};`}
+    }));`);
+    const stdout=execFileSync(process.execPath,['engine/tools/lint.mjs','--json'],{cwd:dir,encoding:'utf8',timeout:60000,env:{...process.env,CHROME_PATH:findChrome()}});
+    const issues=JSON.parse(stdout.trim().split('\n').at(-1));
+    assert.deepEqual(issues.filter(i=>i.kind.startsWith('empty-')).map(i=>[i.page,i.kind]),[
+      ['p02','empty-opening'],['p02','empty-ending'],
+    ]);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
 test('transparent drawing canvases do not hide empty page openings or endings', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'frametell-canvas-layout-'));
   try {
