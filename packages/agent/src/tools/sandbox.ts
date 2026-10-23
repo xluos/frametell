@@ -36,8 +36,9 @@ function readable(): string[] {
     // Node resolves a module through every node_modules above the file asking for it
     for (let d = r; d !== path.dirname(d); d = path.dirname(d)) if (fs.existsSync(path.join(d, 'node_modules'))) out.add(path.join(d, 'node_modules'));
   }
-  const exe = real(process.execPath);
-  if (exe) {
+  for (const runtime of [process.execPath, path.join(ENGINE_DIR, 'native/python/.venv/bin/python')]) {
+    const exe = real(runtime);
+    if (!exe) continue;
     const app = exe.match(/^(.*?\.app)\//)?.[1];   // an app bundle: its resources sit beside the executable
     out.add(app ?? path.dirname(path.dirname(exe)));
   }
@@ -103,7 +104,8 @@ export function confine(root: string, cmd: string, argv: string[], platform: Nod
 
 /** the bubblewrap command for `cmd argv` confined to the real folder `r` (exported for its tests: confine() picks it on Linux) */
 export function bwrapCommand(r: string, cmd: string, argv: string[]): [string, string[]] {
-  const hidden = [...new Set([os.homedir(), ...extraHidden()])].filter((d) => d !== '/' && fs.existsSync(d));
+  // Mount over the real folder: bubblewrap cannot put tmpfs on a symlinked home (common on dev boxes).
+  const hidden = [...new Set([os.homedir(), ...extraHidden()].map(d => real(d) ?? d))].filter((d) => d !== '/' && fs.existsSync(d));
   const filter = seccompFile();
   const args = [
     // its own user namespace, in which no other can be made, and no capabilities in it

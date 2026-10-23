@@ -6,6 +6,22 @@ import path from 'node:path';
 import { BLOCKED, seccompFilter, writeSeccompFilter } from './tools/seccomp.js';
 import { bwrapCommand, usesBwrap } from './tools/sandbox.js';
 
+test('bubblewrap hides canonical directories when configured through symlinks', () => {
+  const base=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'ft-bwrap-alias-')));
+  const hidden=path.join(base,'hidden'),alias=path.join(base,'alias'),project=path.join(base,'project');
+  fs.mkdirSync(hidden);fs.mkdirSync(project);fs.symlinkSync(hidden,alias);
+  const before=process.env.FRAMETELL_SANDBOX_HIDE;
+  try {
+    process.env.FRAMETELL_SANDBOX_HIDE=alias;
+    const [,args]=bwrapCommand(project,'/bin/true',[]);
+    assert.ok(args.some((a,i)=>a==='--tmpfs'&&args[i+1]===hidden));
+    assert.ok(!args.includes(alias));
+  } finally {
+    if(before===undefined)delete process.env.FRAMETELL_SANDBOX_HIDE;else process.env.FRAMETELL_SANDBOX_HIDE=before;
+    fs.rmSync(base,{recursive:true,force:true});
+  }
+});
+
 // a classic-BPF interpreter for the few instructions the filter uses, run on struct seccomp_data { int nr; u32 arch; ... }
 function run(prog: Buffer, nr: number, arch: number): number {
   const data = Buffer.alloc(64); data.writeInt32LE(nr | 0, 0); data.writeUInt32LE(arch >>> 0, 4);

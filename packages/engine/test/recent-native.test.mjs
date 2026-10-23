@@ -12,7 +12,8 @@ test('recent backends load offline in portrait; chat stack effects remain stable
   const browser=await chromium.launch({executablePath:findChrome()});
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'ft-recent-native-'));
   try {
-    for(const id of ['math','mascot','chat','metro']) await t.test(id,async()=>{
+    const selected=process.env.NATIVE_STYLE_IDS?.split(',');
+    for(const id of ['math','mascot','chat','metro'].filter(id=>!selected||selected.includes(id))) await t.test(id,async()=>{
       const dir=path.join(temp,id);fs.cpSync(path.join(ENGINE_DIR,'styles',id,'example'),dir,{recursive:true});
       if(id==='math') {
         const p=path.join(dir,'pages/p01.js');
@@ -32,6 +33,13 @@ test('recent backends load offline in portrait; chat stack effects remain stable
         const state=await page.evaluate(()=>{const p=ENGINE.pages[0];ENGINE.renderAt(p.pg.start+5);const mount=p.root.querySelector('.native-scene'),r=mount.getBoundingClientRect();return{errors:ENGINE.errors,renderer:STYLE.renderer.id,ready:typeof ENGINE.whenReady==='function',bounds:{left:r.left,top:r.top,right:r.right,bottom:r.bottom},roots:document.querySelectorAll('.native-scene').length};});
         assert.deepEqual(errors,[]);assert.deepEqual(state.errors,[]);assert.equal(state.roots,3);
         assert.ok(state.bounds.left>=-1&&state.bounds.top>=-1&&state.bounds.right<=1081&&state.bounds.bottom<=1921);
+        if(id==='metro') {
+          const refused=await page.evaluate(()=>{
+            try {NATIVE_FACTORIES['nf-metro']().mount({},'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L10 10"/></svg>');return false;}
+            catch(e){return e.message.includes('original CLI diagram manifest');}
+          });
+          assert.equal(refused,true,'a handmade SVG must not masquerade as native nf-metro output');
+        }
         if(id==='math') {
           const runtime=await page.evaluate(()=>{for(let frame=0;frame<=84;frame++)ENGINE.renderAt(frame/12);return ENGINE.errors;});
           assert.deepEqual(runtime,[],'continuous formula Write must retain a stable synchronous glyph snapshot');

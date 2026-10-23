@@ -28,6 +28,8 @@ var NativeModule = (() => {
   function mount(host, source) {
     const parsed = new DOMParser().parseFromString(source, "image/svg+xml");
     if (parsed.querySelector("parsererror") || parsed.documentElement.localName !== "svg") throw new Error("nf-metro: invalid SVG; compile the .mmd with engine/tools/native-metro.mjs");
+    const manifest = parsed.getElementById("diagram-manifest");
+    if (!manifest || manifest.getAttribute("data-schema-version") !== "1.0") throw new Error("nf-metro: expected the original CLI diagram manifest; compile the .mmd instead of drawing a replacement SVG");
     const svg = document.importNode(parsed.documentElement, true);
     svg.setAttribute("width", host.width);
     svg.setAttribute("height", host.height);
