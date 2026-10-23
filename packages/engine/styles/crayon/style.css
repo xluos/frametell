@@ -1,8 +1,8 @@
-/* Crayon Picture Book */
-:root { --ink: #e2453a; --soft: #e97f71; --muted: #efa899; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
-#frame { background: #f8f0dd; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #f8f0dd 0%, #f8f0ddF0 55%, transparent 100%); }
-
-.subs span { color: #e2453a; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Crayon Picture Book; palette names retain their literal colour meaning. */
+:root { --ink: #2D3263; --soft: #626383; --muted: #8c8b9c; --hand: 'LXGW WenKai', 'Caveat', cursive; --latin: 'LXGW WenKai', 'Caveat', cursive; }
+#frame { background: #F8F0DD; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #F8F0DD, #F8F0DDEE 55%, transparent); }
+.subs span { color: #2D3263; background: #F8F0DDF2; border-radius: 0; box-shadow: none; }
+.subs span { background: transparent; text-shadow: 0 1px 3px #F8F0DD; }
+#bg { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence baseFrequency='.72' numOctaves='3' seed='7'/%3E%3C/filter%3E%3Cpath fill='%23897755' opacity='.1' filter='url(%23p)' d='M0 0H160V160H0z'/%3E%3C/svg%3E"); }

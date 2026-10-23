@@ -16,13 +16,13 @@ export interface Cue { i: number; at: number; abs: number; text: string }
 export interface PageTiming { id: string; start: number; end: number; speechEnd: number; cues: Cue[] }
 export interface Timeline { voiced: boolean; duration: number; pages: PageTiming[]; /** page id → a frame cut from the finished film */ posters?: Record<string, string> }
 /** what a lint finding is about (engine/tools/checks.mjs) */
-export type LintKind = 'runtime' | 'api' | 'empty-opening' | 'empty-ending' | 'sparse' | 'text-heavy' | 'nondeterministic' | 'raw-markup' | 'off-canvas' | 'subtitle-band' | 'small-text' | 'overlap' | 'palette';
+export type LintKind = 'runtime' | 'api' | 'empty-opening' | 'empty-ending' | 'sparse' | 'text-heavy' | 'nondeterministic' | 'raw-markup' | 'off-canvas' | 'subtitle-band' | 'small-text' | 'overlap' | 'palette' | 'alignment';
 /** `level`: 'error' is plainly wrong on screen or in the code, a page is not done while one is there; 'warn' is advice
  *  the pictures decide on. `msg` is for whoever reads it: code goes by `kind` and `level`. `data`: what the message
  *  quotes (percent, text, px…), for wording it in another language */
 export interface LintIssue { page: string; t: number; t1: number; local: number; kind: LintKind; level: 'error' | 'warn'; msg: string; data?: Record<string, string | number> }
 /** a page's check: its lint findings and a contact sheet (absolute path), or why the page could not be drawn */
-export type PageCheck = { issues: LintIssue[]; sheet: string; crash?: undefined } | { issues: LintIssue[]; sheet?: undefined; crash: string };
+export type PageCheck = { issues: LintIssue[]; sheet: string; details?: string; lintComplete?: boolean; crash?: undefined } | { issues: LintIssue[]; sheet?: undefined; crash: string };
 
 export interface Beat { at: string; object: string; action: string; camera?: string; text?: string }
 export interface StoryPage { id: string; section: string; say: string; core?: boolean; beats: Beat[] }
@@ -221,25 +221,26 @@ export class Project {
     return JSON.parse(r.out);
   }
 
-  /** `timeoutMs`: a lint that takes longer is given up and reports nothing (a page's own check must not hold the film) */
+  /** `timeoutMs`: a stalled or failed lint throws; absence of findings is meaningful only after completion. */
   async lint(only?: string[], extra: string[] = [], timeoutMs?: number): Promise<LintIssue[]> {
     const r = await tool(this.dir, 'lint.mjs', ['--json', ...(only ? ['--only', only.join(',')] : []), ...extra], { signal: this.signal, timeoutMs });
-    const last = r.out.split('\n').pop() || '[]';
+    if (r.code) throw new Error(`lint failed: ${r.err || r.out}`.slice(0,2000));
+    const last = r.out.split('\n').pop() || '';
     try { return JSON.parse(last); } catch { throw new Error(`lint failed: ${r.err || r.out}`.slice(0, 2000)); }
   }
 
   /**
    * A page's check in one browser (engine/tools/check.mjs): lint, with `determinism` the cold/warm frame comparison, and
-   * a contact sheet `name` of the page at the absolute `times`. `lintMs`: a lint that takes longer is given up (no
-   * findings, the sheet still taken), so a page's own check never holds the film.
+   * a contact sheet `name` and enlarged details at the absolute `times`. `lintMs`: a stalled lint returns
+   * lintComplete:false with its sheet; it is an incomplete check, never a pass.
    */
   async check(id: string, name: string, times: number[], o: { determinism?: boolean; lintMs?: number } = {}): Promise<PageCheck> {
     const r = await tool(this.dir, 'check.mjs', ['--only', id, '--sheet', name, ...(o.determinism ? ['--determinism'] : []), ...(o.lintMs ? ['--lint-ms', String(o.lintMs)] : []), ...times.map((t) => t.toFixed(2))], { signal: this.signal });
-    let out: { issues?: LintIssue[]; sheet?: string; crash?: string };
+    let out: { issues?: LintIssue[]; sheet?: string; details?: string; lintComplete?: boolean; crash?: string };
     try { out = JSON.parse(r.out.split('\n').pop() || ''); } catch { return { issues: [], crash: `check failed: ${r.err || r.out}`.slice(0, 2000) }; }
     // what the page logged before it broke (pageerror lines) says where; the crash alone often does not
     if (out.crash || !out.sheet) return { issues: out.issues ?? [], crash: [out.crash ?? 'no contact sheet', r.err].filter(Boolean).join('\n').slice(0, 2000) };
-    return { issues: out.issues ?? [], sheet: this.file(out.sheet) };
+    return { issues: out.issues ?? [], sheet: this.file(out.sheet), ...(out.details ? {details:this.file(out.details)} : {}), lintComplete:out.lintComplete !== false };
   }
 
   /** A contact sheet of the given absolute times → path of the jpg. */

@@ -1,15 +1,20 @@
-ENGINE.visual('p01', (P) => {
-  P.title("三角形的内角和为什么是 180 度", { accent: 'blue' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.rect(206, 286, 28, 28, { at: -1, color: 'faint' });
-  P.rect(206, 746, 28, 28, { at: -1, color: 'faint' });
-  P.rect(1686, 286, 28, 28, { at: -1, color: 'faint' });
-  P.rect(1686, 746, 28, 28, { at: -1, color: 'faint' });
-  P.line(200, 760, 1700, 760, { at: -1, color: 'muted', sw: 2 });
-  P.line(880, 240, 880, 800, { at: -1, color: 'muted', sw: 2 });
-  P.circle(880, 560, 380, { at: -1, color: 'ink' });
-  P.text('?', { x: 880, y: 580, w: 120, align: 'c', size: 100, weight: 700, color: 'blue', at: P.c(1), cps: 6 });
-  P.arrow(880, 560, 1150, 360, { at: P.c(2), color: 'yellow' });
-  P.text('r', { x: 1040, y: 430, w: 80, align:'c', size: 40, color:'yellow', at: P.c(2), cps: 2 });
+// manim-web world coordinates, native geometry and native MasterTimeline.
+ENGINE.visual('p01', P => {
+  P.nativeScene((N, host) => {
+    const container = document.createElement('div'); host.root.appendChild(container);
+    const scene = new N.Scene(container, {width:host.width,height:host.height,backgroundColor:'#1c1c1c'});
+    const axes = new N.Axes({xRange:[-3, 3],yRange:[-1, 9],xLength:8,yLength:5,color:'#dddddd'});
+    axes.shift([-1.5,-0.3,0]);
+    const curve = new N.FunctionGraph({func:x=>x*x,xRange:[-3, 3],axes,color:'#58c4dd',strokeWidth:5});
+    const formula = new N.MathTex({latex:"y=x^2",color:'#ffff88',fontSize:48,position:[4,1.8,0]});
+    const ready = formula.waitForRender().then(() => {
+      scene.add(axes,curve,formula);
+      const timeline = new N.MasterTimeline();
+      timeline.addSegment([new N.Create(axes,{duration:1})]);
+      timeline.addSegment([new N.Create(curve,{duration:3})]);
+      timeline.addSegment([new N.Write(formula,{duration:1.5})]);
+      scene.setTimeline(timeline);scene.seek(0);
+    });
+    return {ready,render:t=>N.seek(scene,Math.max(0,t)),dispose:()=>scene.dispose()};
+  });
 });

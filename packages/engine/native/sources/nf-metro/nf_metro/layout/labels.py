@@ -1,0 +1,2691 @@
+"""Label placement for station names.
+
+Uses horizontal labels (like the reference nf-core metro maps) with
+above/below alternation and collision avoidance.
+"""
+
+from __future__ import annotations
+
+__all__ = [
+    "LabelOverlap",
+    "LabelPlacement",
+    "active_font_scale",
+    "find_label_overlaps",
+    "font_scale_context",
+    "label_glyph_advance_width",
+    "label_glyph_ink_bbox",
+    "label_text_width",
+    "place_labels",
+    "segment_strikes_label",
+    "tb_left_label_marker_pitch",
+]
+
+import math
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Literal, NamedTuple
+
+from nf_metro.layout.constants import (
+    COLLISION_MULTIPLIER,
+    DESCENDER_CLEARANCE,
+    DIAGONAL_LABEL_OFFSET,
+    DIAGONAL_SLOPE_RATIO,
+    FONT_HEIGHT,
+    LABEL_BBOX_MARGIN,
+    LABEL_FONT_SIZE,
+    LABEL_MARGIN,
+    LABEL_NUDGE_MAX,
+    LABEL_OFFSET,
+    LABEL_OVERLAP_TOL,
+    LABEL_WRAP_MIN_LINE_CHARS,
+    PORT_LABEL_MAX_DX,
+    RAIL_KNOB_RADIUS_RATIO,
+    SAME_COORD_TOLERANCE,
+    TB_LABEL_H_SPACING,
+    TB_LINE_Y_OFFSET,
+    TB_PILL_EDGE_OFFSET,
+    X_SPACING,
+)
+from nf_metro.layout.geometry import (
+    AxisFrame,
+    lanes_run_along_x,
+    segment_intersects_bbox,
+    segment_intersects_quad,
+)
+from nf_metro.layout.pass_metrics import (
+    active_font_scale,
+    font_scale_context,
+    station_radius_approx,
+    station_stroke_approx,
+)
+from nf_metro.layout.phases._common import _station_bundle_offset_span
+from nf_metro.parser.model import MetroGraph
+from nf_metro.text_metrics import DEFAULT_TEXT_METRICS, TextRole, text_style
+
+if TYPE_CHECKING:
+    from nf_metro.layout.routing.common import RoutedPath
+    from nf_metro.parser.model import Section, Station
+
+
+def label_text_width(label: str, role: TextRole = TextRole.STATION_LABEL) -> float:
+    """Reserved pixel width of the widest line in a (possibly multi-line) label.
+
+    A generous fixed-per-character budget for collision spacing; for the width
+    the text actually draws at, use :func:`label_glyph_advance_width`.
+    """
+    style = text_style(LABEL_FONT_SIZE * active_font_scale(), "bold")
+    return DEFAULT_TEXT_METRICS.reserve_width(label, style, role)
+
+
+def tb_left_label_marker_pitch(
+    label: str,
+    *,
+    left_line_count: int,
+    right_line_count: int,
+    lane_sign: float,
+    offset_step: float,
+) -> float:
+    """Minimum lane pitch for a right station's left-facing TB/BT label.
+
+    Vertical-flow labels prefer the left of their bundle-spanning pill.  This
+    returns the centre-to-centre distance that keeps that label clear of the
+    neighbouring pill on its left.  The bundle extents use the same fallback
+    offset span as :func:`_place_tb_label`.
+    """
+    left_span = max(left_line_count - 1, 0) * offset_step
+    right_span = max(right_line_count - 1, 0) * offset_step
+    left_max_offset = max(0.0, lane_sign * left_span)
+    right_min_offset = min(0.0, lane_sign * right_span)
+    return (
+        label_text_width(label)
+        + TB_LABEL_H_SPACING
+        + TB_PILL_EDGE_OFFSET
+        - right_min_offset
+        + TB_PILL_EDGE_OFFSET
+        + left_max_offset
+        + LABEL_BBOX_MARGIN
+    )
+
+
+def label_glyph_advance_width(
+    label: str, role: TextRole = TextRole.STATION_LABEL
+) -> float:
+    """Rendered pixel width of the widest line in a (possibly multi-line) label.
+
+    Uses the active deterministic metrics face at :data:`LABEL_FONT_SIZE`,
+    scaled by the graph's font scale.
+    """
+    style = text_style(LABEL_FONT_SIZE * active_font_scale(), "bold")
+    return DEFAULT_TEXT_METRICS.advance(label, style, role)
+
+
+def _label_text_height(label: str) -> float:
+    """Pixel height of a (possibly multi-line) label."""
+    font_height = FONT_HEIGHT * active_font_scale()
+    n = label.count("\n") + 1
+    style = text_style(font_height, "bold")
+    return DEFAULT_TEXT_METRICS.line_block_height(
+        n, style, TextRole.STATION_LABEL, font_height
+    )
+
+
+def diagonal_label_pitch(
+    graph: "MetroGraph",
+    fallback: float,
+    section_ids: "set[str] | None" = None,
+) -> float:
+    """Column pitch for diagonal (angled) station labels.
+
+    All diagonal labels are drawn at the same angle, so adjacent columns'
+    labels are PARALLEL and collide only by their PERPENDICULAR separation, not
+    along their length.  Giving adjacent labels a clear text-row of space
+    between them means a perpendicular separation of ~2x the label height (the
+    row itself plus an equal gap); the column pitch that yields that is
+    ``2 * height / sin(angle)``, floored at a marker-collision minimum.
+
+    The tallest qualifying label drives the pitch so every column in scope
+    shares one consistent pitch rather than each column sizing its own.  With
+    *section_ids* the scope is restricted to stations in those sections, so a
+    disconnected component's tall labels do not inflate another component's
+    pitch; ``None`` scopes the whole graph.  Returns *fallback* when no label
+    angle is set or no qualifying label exists in scope.
+    """
+    angle = graph.label_angle or 0.0
+    if not angle:
+        return fallback
+    sin_a = abs(math.sin(math.radians(angle)))
+    if sin_a < 1e-6:
+        return fallback
+    tallest = 0.0
+    for st in graph.stations.values():
+        if section_ids is not None and st.section_id not in section_ids:
+            continue
+        if st.is_port or st.is_hidden or st.off_track:
+            continue
+        if st.is_blank_terminus:
+            continue
+        if not st.label.strip():
+            continue
+        tallest = max(tallest, _label_text_height(st.label))
+    if tallest <= 0.0:
+        return fallback
+    marker_floor = station_radius_approx() * 3.0
+    return max(marker_floor, (tallest * 2.0) / sin_a)
+
+
+def diagonal_label_pitch_by_section(
+    graph: "MetroGraph", fallback: float
+) -> dict[str, float]:
+    """Per-section diagonal-label column pitch, scoped per component.
+
+    A diagonal label angle drives the column pitch off the tallest label in
+    scope.  Scoping that to each weakly-connected component of the section
+    meta-graph stops one component's tall labels (e.g. a disconnected rail
+    panel) inflating another component's columns.  Each section maps to its
+    component's pitch.
+
+    Returns an empty map -- the signal for callers to keep the single
+    graph-wide pitch -- unless the graph both carries a label angle and splits
+    into two or more components.
+    """
+    if not graph.label_angle or graph.section_dag is None:
+        return {}
+    from nf_metro.layout.section_placement import _weakly_connected_components
+
+    components = _weakly_connected_components(graph, graph.section_dag.section_edges)
+    if len(components) <= 1:
+        return {}
+    per_section: dict[str, float] = {}
+    for comp in components:
+        pitch = diagonal_label_pitch(graph, fallback, section_ids=comp)
+        for sid in comp:
+            per_section[sid] = pitch
+    return per_section
+
+
+@dataclass
+class LabelPlacement:
+    """Placement information for a station label."""
+
+    station_id: str
+    text: str
+    x: float
+    y: float
+    above: bool
+    angle: float = 0.0  # Horizontal by default
+    text_anchor: str = "middle"
+    dominant_baseline: str = ""  # Empty means use above/below logic
+    obstacle_bbox: tuple[float, float, float, float] | None = None
+
+
+def _rail_panel_extents(graph: "MetroGraph") -> dict[str, tuple[float, float]]:
+    """Per-rail-section (top_rail_y, bottom_rail_y) from the rail Y map.
+
+    Used to offset rail-mode station labels to the whole panel's outer edge
+    so a label always clears every rail rather than landing between two of
+    them.  Returns an empty map when the graph has no rail sections.
+    """
+    rail_y = graph._rail_y
+    extents: dict[str, tuple[float, float]] = {}
+    if not rail_y:
+        return extents
+    for sec_id, per_line in rail_y.items():
+        if not per_line:
+            continue
+        ys = list(per_line.values())
+        extents[sec_id] = (min(ys), max(ys))
+    return extents
+
+
+def _rail_above_threshold(per_line: dict[str, float] | None) -> float | None:
+    """Y below which a single-rail station counts as sitting on the top rail.
+
+    ``per_line`` maps a section's line ids to their rail Y.  The threshold sits
+    midway between the topmost rail and the next rail down, so only stations on
+    the top rail fall above it.  ``None`` when there are fewer than two distinct
+    rails (no meaningful top/non-top split).  Shared by ``_rail_label_side`` and
+    ``rail_mode._rail_above_label_stations`` so both apply one definition.
+    """
+    if not per_line:
+        return None
+    ys = sorted(set(per_line.values()))
+    if len(ys) < 2:
+        return None
+    return (ys[0] + ys[1]) / 2
+
+
+def _rail_label_side(
+    graph: "MetroGraph",
+    station: "Station",
+) -> bool | None:
+    """Forced above/below side for a rail-mode single-rail station label.
+
+    A label beside an inner rail reads as noise in the bundle, so each
+    single-rail station's label is pushed *outward* to the panel edge (see
+    ``_rail_panel_label_offsets``): a station on the topmost rail labels above
+    (clearing the panel's top), every other single-rail station labels below
+    (clearing the bottommost rail).  This keeps top-rail names out of the
+    bundle and reads like a transit map where the outer line's stops are named
+    on the outside.  Returns True (above) / False (below), or None when the
+    rule doesn't apply (non-rail section, or a multi-rail spanning station
+    which keeps layer alternation).
+    """
+    if not station.section_id:
+        return None
+    if station.rail_top_y is not None and station.rail_bottom_y is not None:
+        return None  # spanning pill: keeps layer alternation
+    threshold = _rail_above_threshold(graph._rail_y.get(station.section_id))
+    if threshold is None:
+        return None
+    return station.y < threshold
+
+
+def _rail_panel_label_offsets(
+    station: "Station",
+    panel_extents: dict[str, tuple[float, float]],
+) -> tuple[float, float] | None:
+    """Label offsets (min_off, max_off) clearing the WHOLE rail panel.
+
+    A rail-mode label must never sit beside a middle rail: an above label has
+    to clear the panel's topmost rail and a below label its bottommost rail,
+    whatever rail(s) the station itself occupies.  Returns offsets measured
+    from ``station.y`` to the panel's top/bottom rail (so ``_try_place`` lands
+    the label outside the rail stack), or None when the station is not in a
+    known rail panel.
+
+    An off-track station parks outside the rail panel on its own vertical
+    stub; forcing its label to clear the whole panel drives it across the
+    drop onto a neighbour, so it keeps the normal pill offsets and labels
+    against its own node.
+    """
+    if not station.section_id or station.off_track:
+        return None
+    extent = panel_extents.get(station.section_id)
+    if extent is None:
+        return None
+    top_y, bot_y = extent
+    return (top_y - station.y, bot_y - station.y)
+
+
+def _interchange_span_extents(graph: "MetroGraph") -> dict[str, tuple[float, float]]:
+    """Per-anchor ``(top_member_y, bottom_member_y)`` for cross-track interchanges.
+
+    A cross-track interchange draws one connector "bridge" spanning its members'
+    Y range at the anchor column; only the anchor member carries a label.  This
+    maps that anchor's id to the span so its label can clear the whole bridge
+    (see :func:`_interchange_span_label_offsets`).  Rail-mode interchanges are
+    excluded: their spanning pills keep the rail-panel alternation idiom.
+    """
+    extents: dict[str, tuple[float, float]] = {}
+    for ic in graph.interchanges:
+        members = [graph.stations[m] for m in ic.member_ids if m in graph.stations]
+        if len(members) < 2:
+            continue
+        anchor = graph.stations.get(ic.node_id)
+        if anchor is None or graph.is_rail_section(anchor.section_id):
+            continue
+        ys = [m.y for m in members]
+        top_y, bot_y = min(ys), max(ys)
+        if bot_y - top_y < SAME_COORD_TOLERANCE:
+            continue
+        extents[ic.node_id] = (top_y, bot_y)
+    return extents
+
+
+def _interchange_span_label_offsets(
+    station: "Station",
+    span_extents: dict[str, tuple[float, float]],
+) -> tuple[float, float] | None:
+    """Label offsets (min_off, max_off) clearing the WHOLE interchange bridge.
+
+    An interchange is one long station, so its anchor's label must clear the
+    connector bridge rather than land on it: an above label clears the topmost
+    member and a below label the bottommost.  The end members render as knobs
+    enlarged by :data:`RAIL_KNOB_RADIUS_RATIO`, so the offsets reach the
+    knob edge (not just the member centre) and ``_try_place`` seats the label
+    the same gap past the knob as a normal label sits past its marker.  Returns
+    None when the station is not an interchange anchor with a spanning bridge.
+    """
+    extent = span_extents.get(station.id)
+    if extent is None:
+        return None
+    top_y, bot_y = extent
+    # Reach past the enlarged knob's outer edge, not the member centre, by the
+    # amount the knob outline extends beyond a plain marker's -- so the label
+    # sits the same gap past the knob as a normal label sits past its marker.
+    knob_outer = (
+        station_radius_approx() * RAIL_KNOB_RADIUS_RATIO + station_stroke_approx()
+    )
+    marker_outer = station_radius_approx() + station_stroke_approx() / 2.0
+    knob_clearance = knob_outer - marker_outer
+    return (top_y - knob_clearance - station.y, bot_y + knob_clearance - station.y)
+
+
+def _label_bbox(
+    placement: LabelPlacement,
+) -> tuple[float, float, float, float]:
+    """Return (x_min, y_min, x_max, y_max) bounding box for a label."""
+    if placement.obstacle_bbox is not None:
+        return placement.obstacle_bbox
+    if placement.angle:
+        return _rotated_label_bbox(placement)
+    w = label_text_width(placement.text)
+    text_h = _label_text_height(placement.text)
+
+    # Horizontal bounds depend on text_anchor
+    if placement.text_anchor == "end":
+        x_min = placement.x - w
+        x_max = placement.x
+    elif placement.text_anchor == "start":
+        x_min = placement.x
+        x_max = placement.x + w
+    else:  # "middle" (default)
+        x_min = placement.x - w / 2
+        x_max = placement.x + w / 2
+
+    # Vertical bounds: "central" baseline centers text at y
+    if placement.dominant_baseline == "central":
+        y_min = placement.y - text_h / 2
+        y_max = placement.y + text_h / 2
+    elif placement.above:
+        y_min = placement.y - text_h
+        y_max = placement.y
+    else:
+        y_min = placement.y
+        y_max = placement.y + text_h
+
+    return (x_min, y_min, x_max, y_max)
+
+
+# Fraction of the font height the alphabetic baseline sits below the glyph
+# top.  Matches the renderer's dominant-baseline auto/hanging placement
+# closely enough to tell a line striking the name's ink from one clearing it.
+_GLYPH_ASCENT_RATIO = 0.8
+
+
+def _label_ink_y_band(placement: LabelPlacement) -> tuple[float, float]:
+    """Approximate ``(y_top, y_bottom)`` of a label's drawn glyph ink.
+
+    Mirrors the renderer: a multi-line *above* label stacks downward from a
+    raised first-line baseline (dominant-baseline auto), so the block grows
+    upward from the pill; a *below* label hangs its first line at ``y`` and
+    stacks downward.  Tighter and lower than ``_label_bbox``, which models an
+    above block as ``[y - text_h, y]`` (the full height above the anchor) and
+    so reads ~one line-height too high for a wrapped label.
+    """
+    font_height = FONT_HEIGHT * active_font_scale()
+    n = placement.text.count("\n") + 1
+    line_spacing = DEFAULT_TEXT_METRICS.line_height(
+        text_style(font_height, "bold"), TextRole.STATION_LABEL
+    )
+    ascent = font_height * _GLYPH_ASCENT_RATIO
+    if placement.above:
+        first_baseline = placement.y - (n - 1) * line_spacing
+        return first_baseline - ascent, placement.y + (font_height - ascent)
+    return placement.y, placement.y + (n - 1) * line_spacing + font_height
+
+
+def label_glyph_ink_bbox(
+    placement: LabelPlacement,
+) -> tuple[float, float, float, float]:
+    """Return the label's drawn-glyph box, tightened to where text is inked.
+
+    For an axis-aligned label the horizontal span is the proportional glyph
+    advance (:func:`label_glyph_advance_width`) anchored to match the rendered
+    text, and the vertical span is the renderer's true ink band
+    (:func:`_label_ink_y_band`, which stacks wrapped lines downward rather than
+    growing upward from the anchor).  A route grazing only the empty reserved
+    margin clears this box; a route striking through the text intersects it.
+
+    Rotated or vertically-centred labels use the active face's advance width
+    within the reserved vertical footprint.
+    """
+    x0, y0, x1, y1 = _label_bbox(placement)
+    if placement.angle or placement.dominant_baseline:
+        style = text_style(LABEL_FONT_SIZE * active_font_scale(), "bold")
+        ink_half = DEFAULT_TEXT_METRICS.ink_half_width(
+            placement.text, style, TextRole.STATION_LABEL
+        )
+        center = (x0 + x1) / 2
+        return (center - ink_half, y0, center + ink_half, y1)
+
+    advance = label_glyph_advance_width(placement.text)
+    if placement.text_anchor == "end":
+        gx0, gx1 = placement.x - advance, placement.x
+    elif placement.text_anchor == "start":
+        gx0, gx1 = placement.x, placement.x + advance
+    else:
+        gx0, gx1 = placement.x - advance / 2, placement.x + advance / 2
+    iy0, iy1 = _label_ink_y_band(placement)
+    return (gx0, iy0, gx1, iy1)
+
+
+def _label_ink_quad(placement: LabelPlacement) -> list[tuple[float, float]]:
+    """Corners of the label's drawn-glyph footprint, rotated when angled.
+
+    For an angled label this is the proportional glyph strip
+    (:func:`label_glyph_advance_width` wide, one text-height tall) rotated about
+    the anchor like the renderer's ``rotate(angle, x, y)`` -- a thin diagonal
+    band, not the axis-aligned box that would overstate it.  For a horizontal
+    label it is the four corners of :func:`label_glyph_ink_bbox`.
+    """
+    if placement.angle and placement.obstacle_bbox is None:
+        w = label_glyph_advance_width(placement.text)
+        h = _label_text_height(placement.text)
+        if placement.text_anchor == "end":
+            left, right = placement.x - w, placement.x
+        elif placement.text_anchor == "start":
+            left, right = placement.x, placement.x + w
+        else:
+            left, right = placement.x - w / 2, placement.x + w / 2
+        upright = [
+            (left, placement.y - h),
+            (right, placement.y - h),
+            (right, placement.y),
+            (left, placement.y),
+        ]
+        rad = math.radians(placement.angle)
+        cos_a, sin_a = math.cos(rad), math.sin(rad)
+        ax, ay = placement.x, placement.y
+        return [
+            (
+                ax + (cx - ax) * cos_a - (cy - ay) * sin_a,
+                ay + (cx - ax) * sin_a + (cy - ay) * cos_a,
+            )
+            for cx, cy in upright
+        ]
+    x0, y0, x1, y1 = label_glyph_ink_bbox(placement)
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def segment_strikes_label(
+    x1: float, y1: float, x2: float, y2: float, placement: LabelPlacement
+) -> bool:
+    """``True`` iff the segment crosses the label's drawn-glyph footprint.
+
+    Uses the rotated glyph strip for an angled label (so a route grazing only
+    the empty corner of its axis-aligned box is not a strike) and the
+    glyph-ink bbox otherwise.
+    """
+    if placement.angle and placement.obstacle_bbox is None:
+        return segment_intersects_quad(x1, y1, x2, y2, _label_ink_quad(placement))
+    return segment_intersects_bbox(x1, y1, x2, y2, label_glyph_ink_bbox(placement))
+
+
+def _rotated_label_bbox(
+    placement: LabelPlacement,
+) -> tuple[float, float, float, float]:
+    """Axis-aligned bounding box of a label rotated about its anchor.
+
+    The label text starts at the anchor ``(x, y)`` (``text_anchor="start"``)
+    and reads horizontally before being rotated clockwise by ``angle``
+    degrees about that anchor -- matching the SVG ``rotate(angle, x, y)``
+    transform the renderer emits.  The enclosing rectangle of the rotated
+    corners approximates the diagonal footprint for collision purposes.
+    """
+    corners = _label_corners(placement)
+    xs = [c[0] for c in corners]
+    ys = [c[1] for c in corners]
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _label_corners(
+    placement: LabelPlacement,
+) -> list[tuple[float, float]]:
+    """Return the four corners of a label's (possibly rotated) box.
+
+    For an angled label the corners are the upright text box rotated about
+    its anchor, matching the renderer's ``rotate(angle, x, y)`` transform.
+    For a horizontal label (or one carrying an explicit ``obstacle_bbox``)
+    the corners are those of its axis-aligned bounding box.  Used by the
+    oriented overlap test so densely-spaced parallel diagonal labels pack
+    by their true (narrow) footprint rather than their enclosing AABB.
+    """
+    if placement.obstacle_bbox is not None or not placement.angle:
+        x0, y0, x1, y1 = _label_bbox(placement)
+        return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    w = label_text_width(placement.text)
+    text_h = _label_text_height(placement.text)
+    if placement.text_anchor == "end":
+        left, right = placement.x - w, placement.x
+    elif placement.text_anchor == "middle":
+        left, right = placement.x - w / 2, placement.x + w / 2
+    else:
+        left, right = placement.x, placement.x + w
+    corners = [
+        (left, placement.y - text_h),
+        (right, placement.y - text_h),
+        (right, placement.y),
+        (left, placement.y),
+    ]
+    rad = math.radians(placement.angle)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+    ax, ay = placement.x, placement.y
+    out: list[tuple[float, float]] = []
+    for cx, cy in corners:
+        dx, dy = cx - ax, cy - ay
+        out.append((ax + dx * cos_a - dy * sin_a, ay + dx * sin_a + dy * cos_a))
+    return out
+
+
+def _obb_separation(
+    a: list[tuple[float, float]],
+    b: list[tuple[float, float]],
+) -> float:
+    """Minimum separating gap between two convex quads via SAT.
+
+    Returns the largest gap found over all candidate separating axes
+    (positive when the quads are apart, <= 0 when they overlap).  Both
+    quads are convex (label rectangles), so the separating-axis theorem
+    using each quad's edge normals is exact.
+    """
+
+    def axes(quad: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        res = []
+        for i in range(len(quad)):
+            x1, y1 = quad[i]
+            x2, y2 = quad[(i + 1) % len(quad)]
+            nx, ny = -(y2 - y1), (x2 - x1)
+            length = math.hypot(nx, ny)
+            if length > 1e-9:
+                res.append((nx / length, ny / length))
+        return res
+
+    best_gap = -math.inf
+    for ax, ay in axes(a) + axes(b):
+        a_proj = [px * ax + py * ay for px, py in a]
+        b_proj = [px * ax + py * ay for px, py in b]
+        gap = max(min(b_proj) - max(a_proj), min(a_proj) - max(b_proj))
+        best_gap = max(best_gap, gap)
+    return best_gap
+
+
+def _boxes_overlap(
+    a: tuple[float, float, float, float],
+    b: tuple[float, float, float, float],
+    margin: float = LABEL_MARGIN,
+) -> bool:
+    """Check if two axis-aligned bounding boxes overlap."""
+    return not (
+        a[2] + margin < b[0]
+        or b[2] + margin < a[0]
+        or a[3] + margin < b[1]
+        or b[3] + margin < a[1]
+    )
+
+
+def _placements_overlap(
+    a: LabelPlacement,
+    b: LabelPlacement,
+    margin: float = LABEL_MARGIN,
+) -> bool:
+    """Overlap test honouring label rotation.
+
+    When either label is angled, an oriented (separating-axis) test packs
+    parallel diagonal labels by their true footprint; otherwise it falls
+    back to the cheap AABB test so horizontal layouts are unchanged.
+    """
+    if a.angle or b.angle:
+        return _obb_separation(_label_corners(a), _label_corners(b)) < margin
+    return _boxes_overlap(_label_bbox(a), _label_bbox(b), margin)
+
+
+class LabelOverlap(NamedTuple):
+    """A detected overlap involving a station label.
+
+    ``kind`` is ``"label"`` (label box over another label box) or
+    ``"marker"`` (label box over a non-owner station marker).  ``a`` is the
+    owning station of the label; ``b`` is the other label's station (for
+    ``"label"``) or the intruded marker's station (for ``"marker"``).
+    ``ox``/``oy`` are the per-axis intrusion depths in px.
+    """
+
+    kind: Literal["label", "marker"]
+    a: str
+    b: str
+    ox: float
+    oy: float
+
+
+def _intrusion(
+    a: tuple[float, float, float, float],
+    b: tuple[float, float, float, float],
+) -> tuple[float, float]:
+    """Return per-axis overlap depth (negative when separated on that axis)."""
+    ox = min(a[2], b[2]) - max(a[0], b[0])
+    oy = min(a[3], b[3]) - max(a[1], b[1])
+    return ox, oy
+
+
+def _station_marker_boxes(
+    graph: MetroGraph,
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> dict[str, tuple[float, float, float, float]]:
+    """Rendered pill box per station that draws a marker.
+
+    Reuses the engine's pill geometry, which returns None for ports, hidden
+    stations and junctions -- none of which render a marker to collide with.
+    """
+    from nf_metro.layout.engine import _station_marker_bbox
+
+    return {
+        sid: bbox
+        for sid in graph.stations
+        if (bbox := _station_marker_bbox(graph, sid, station_offsets)) is not None
+    }
+
+
+def _label_clear_of_everything(
+    placement: LabelPlacement,
+    others: list[LabelPlacement],
+    markers: dict[str, tuple[float, float, float, float]],
+    marker_tol: float = LABEL_OVERLAP_TOL,
+) -> bool:
+    """Whether a placement is free of every other label, obstacle and marker.
+
+    Agrees with :func:`find_label_overlaps` on labels and on the ``marker_tol``
+    graze allowance, and additionally rejects the icon obstacles, which carry
+    their box on a placement rather than on a station.
+    """
+    if _has_collision(placement, others):
+        return False
+    box = _label_bbox(placement)
+    for sid, mbox in markers.items():
+        if sid == placement.station_id:
+            continue
+        ox, oy = _intrusion(box, mbox)
+        if ox > marker_tol and oy > marker_tol:
+            return False
+    return True
+
+
+def find_label_overlaps(
+    graph: MetroGraph,
+    placements: list[LabelPlacement],
+    station_offsets: dict[tuple[str, str], float] | None = None,
+    marker_tol: float = LABEL_OVERLAP_TOL,
+) -> list[LabelOverlap]:
+    """Find label/label and label/marker overlaps in a set of placements.
+
+    Two *label* boxes count as overlapping when they intrude on both axes
+    (beyond a sub-pixel epsilon): text-on-text is never acceptable.  A label
+    over a *marker* is reported only when it intrudes by more than
+    ``marker_tol`` on both axes, so a label whose edge merely grazes a pill
+    (the 1px touch between tightly stacked parallel lines) is tolerated.
+
+    Shared by the wrapping pass, the runtime guard, and the layout validator
+    so all three agree on what "overlap" means.
+    """
+    eps = SAME_COORD_TOLERANCE
+    labels = [
+        p
+        for p in placements
+        if p.station_id
+        and not p.station_id.startswith("__")
+        and p.obstacle_bbox is None
+    ]
+    boxes = [(p, _label_bbox(p)) for p in labels]
+    overlaps: list[LabelOverlap] = []
+
+    for i in range(len(boxes)):
+        pa, ba = boxes[i]
+        for j in range(i + 1, len(boxes)):
+            pb, bb = boxes[j]
+            ox, oy = _intrusion(ba, bb)
+            if ox <= eps or oy <= eps:
+                continue
+            # Angled labels pack as parallel diagonal strips: the AABBs
+            # overlap long before the tilted text does, so confirm with the
+            # oriented test before reporting (and spreading).  The reported
+            # ox/oy stay the AABB intrusion -- a safe upper bound for the
+            # spread bump.
+            if (pa.angle or pb.angle) and _obb_separation(
+                _label_corners(pa), _label_corners(pb)
+            ) >= LABEL_MARGIN:
+                continue
+            overlaps.append(LabelOverlap("label", pa.station_id, pb.station_id, ox, oy))
+
+    markers = _station_marker_boxes(graph, station_offsets)
+    for p, lb in boxes:
+        for sid, mb in markers.items():
+            if sid == p.station_id:
+                continue
+            ox, oy = _intrusion(lb, mb)
+            if ox > marker_tol and oy > marker_tol:
+                overlaps.append(LabelOverlap("marker", p.station_id, sid, ox, oy))
+
+    return overlaps
+
+
+def find_wrapped_label_trunk_strikes(
+    graph: MetroGraph,
+    placements: list[LabelPlacement],
+    routes: list["RoutedPath"] | None,
+    station_offsets: dict[tuple[str, str], float] | None = None,
+    tol: float = 0.75,
+) -> list[tuple[str, float, str]]:
+    """Find multi-line labels whose ink overruns a foreign horizontal trunk.
+
+    A wrapped label stacks its extra lines toward the row above (an above
+    label) or below, so its block can grow across a metro line the station
+    does not serve when that line runs horizontally over the label's width.
+    Single-line labels and a label's own served lines never count: a station
+    sits on its own line by construction and its name is offset clear of it.
+
+    Routes are measured at their drawn Y (``station_offsets`` applied) so this
+    sees the same geometry as ``_guard_no_line_strikes_label``.  Returns
+    ``(station_id, trunk_y, line_id)`` for each strike, shared by the
+    render-time lift, that guard, and the layout invariant test so all agree
+    on what "a line strikes a wrapped label" means.
+    """
+    if not routes:
+        return []
+    from nf_metro.layout.routing.common import apply_route_offsets
+
+    # Every line's horizontal runs at their drawn Y: (line_id, x_lo, x_hi, y).
+    trunks: list[tuple[str, float, float, float]] = []
+    for route in routes:
+        pts = (
+            apply_route_offsets(route, station_offsets)
+            if station_offsets is not None
+            else route.points
+        )
+        for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+            if abs(by - ay) <= tol:
+                trunks.append((route.line_id, min(ax, bx), max(ax, bx), ay))
+
+    strikes: list[tuple[str, float, str]] = []
+    for p in placements:
+        if p.obstacle_bbox is not None or p.angle or "\n" not in p.text:
+            continue
+        st = graph.stations.get(p.station_id)
+        if st is None or st.is_port:
+            continue
+        served = set(graph.station_lines(st.id))
+        x0, ytop, x1, ybot = label_glyph_ink_bbox(p)
+        for line_id, seg_lo, seg_hi, y in trunks:
+            if line_id in served or seg_hi < x0 - tol or seg_lo > x1 + tol:
+                continue
+            if ytop - tol <= y <= ybot + tol:
+                strikes.append((p.station_id, y, line_id))
+                break
+    return strikes
+
+
+def _pill_offsets(
+    graph: MetroGraph,
+    station: "Station",
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> tuple[float, float]:
+    """``(min_off, max_off)``: the pill's top/bottom edge offsets from
+    ``station.y``.
+
+    A multi-line station spreads its served lines around ``station.y``; a
+    label measures from the outermost line so it clears the whole pill.
+    Mirrors the per-station offset the placement loop computes.
+    """
+    if not station_offsets:
+        return 0.0, 0.0
+    return _station_bundle_offset_span(graph, station.id, station_offsets)
+
+
+def _label_anchor_ys(
+    graph: MetroGraph,
+    placement: LabelPlacement,
+    station: "Station",
+    station_offsets: dict[tuple[str, str], float] | None,
+    safe_offsets: dict[str, tuple[float, float]],
+    label_offset: float,
+) -> tuple[float, float]:
+    """``(unpushed_y, collision_pushed_y)`` for one label beside its own pill.
+
+    The un-pushed anchor is the closest the label sits to its pill; the pushed
+    one is where a both-sides collision drives it.  Which pill edge and which
+    safe offset apply follows from the side the label settled on.
+    """
+    min_off, max_off = _pill_offsets(graph, station, station_offsets)
+    safe_above, safe_below = safe_offsets.get(
+        placement.station_id, (label_offset, label_offset)
+    )
+    if placement.above:
+        return (
+            station.y + min_off - safe_above - DESCENDER_CLEARANCE,
+            station.y + min_off - safe_above * COLLISION_MULTIPLIER,
+        )
+    return (
+        station.y + max_off + safe_below,
+        station.y + max_off + safe_below * COLLISION_MULTIPLIER,
+    )
+
+
+def _lift_wrapped_labels_off_foreign_trunks(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    routes: list["RoutedPath"] | None,
+    station_offsets: dict[tuple[str, str], float] | None,
+    safe_offsets: dict[str, tuple[float, float]],
+    label_offset: float,
+) -> None:
+    """Pull a wrapped label back to its un-pushed anchor when its block
+    overruns a foreign trunk.
+
+    place_labels settles each label's side and any both-sides-collision
+    push-out from single-line geometry; ``_wrap_overlapping_labels`` then
+    stacks crowded labels onto extra lines that grow the block toward the row
+    above (above placement) or below.  A label the push-out drove toward a
+    neighbouring track can then overrun a metro line the station does not
+    serve.  Restoring the label to its un-pushed anchor (the closest it
+    naturally sits to its own pill) keeps the grown block clear; a graze with a
+    neighbouring label is preferable to a line drawn through the name.
+    """
+    struck = {
+        sid
+        for sid, _y, _lid in find_wrapped_label_trunk_strikes(
+            graph, placements, routes, station_offsets
+        )
+    }
+    if not struck:
+        return
+    for p in placements:
+        if p.station_id not in struck:
+            continue
+        st = graph.stations.get(p.station_id)
+        if st is None:
+            continue
+        base_y, _pushed_y = _label_anchor_ys(
+            graph, p, st, station_offsets, safe_offsets, label_offset
+        )
+        # Move only inward: the base sits closer to the pill than the push-out.
+        if (base_y > p.y) if p.above else (base_y < p.y):
+            p.y = base_y
+
+
+def _relax_collision_pushed_labels(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    station_offsets: dict[tuple[str, str], float] | None,
+    safe_offsets: dict[str, tuple[float, float]],
+    label_offset: float,
+) -> None:
+    """Return a pushed-out label to its un-pushed anchor once wrapping clears it.
+
+    :func:`_place_alternating_candidate` answers a label that collides on both
+    sides by pushing it ``COLLISION_MULTIPLIER`` offsets clear of its pill,
+    decided while every label is still one line wide.
+    :func:`_wrap_overlapping_labels` then narrows the crowded labels, which
+    usually removes the overlap the push answered and leaves the label stranded
+    the extra offset away from its pill while its same-row neighbours sit at
+    the plain anchor - two stations on one trunk Y whose names hang at
+    different heights.  A label whose wrapped block clears its neighbours at
+    the plain anchor is put back there.
+    """
+    for p in placements:
+        if p.obstacle_bbox is not None or p.angle or p.dominant_baseline:
+            continue
+        station = graph.stations.get(p.station_id)
+        if station is None:
+            continue
+        base_y, pushed_y = _label_anchor_ys(
+            graph, p, station, station_offsets, safe_offsets, label_offset
+        )
+        if abs(p.y - pushed_y) > SAME_COORD_TOLERANCE:
+            continue
+        relaxed = replace(p, y=base_y)
+        if _has_collision(relaxed, [q for q in placements if q is not p]):
+            continue
+        p.y = base_y
+
+
+def _wrap_text_to_chars(text: str, max_chars: int) -> str:
+    """Word-wrap ``text`` on whitespace so no line exceeds ``max_chars``.
+
+    A word wider than the budget gets a line to itself and overflows it, rather
+    than being split with a hyphen: station names are mostly tool names, where a
+    mid-word break is unreadable and indistinguishable from a hyphen the name
+    really carries.  The sibling section-header and icon-caption wrappers hold
+    the same rule.
+    """
+    lines: list[str] = []
+    cur = ""
+    for word in text.split():
+        if not cur:
+            cur = word
+        elif len(cur) + 1 + len(word) <= max_chars:
+            cur += " " + word
+        else:
+            lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return "\n".join(lines)
+
+
+def _nudge_to_clear(
+    candidate: LabelPlacement,
+    existing: list[LabelPlacement],
+    max_nudge: float = LABEL_NUDGE_MAX,
+) -> LabelPlacement | None:
+    """Try a small horizontal shift to clear collisions on the preferred side.
+
+    When a label collides with already-placed labels, a tiny X nudge can
+    often resolve it without flipping above/below (which breaks
+    alternation).  Returns a nudged copy if successful, None otherwise.
+    """
+    cbox = _label_bbox(candidate)
+
+    # Accumulate the minimum shift needed in each direction.
+    need_right = 0.0  # shift right to clear left-side collisions
+    need_left = 0.0  # shift left to clear right-side collisions
+
+    for placed in existing:
+        pbox = _label_bbox(placed)
+        if not _boxes_overlap(cbox, pbox):
+            continue
+        if placed.x <= candidate.x:
+            # Collider is to the left: need to shift our left edge rightward.
+            gap = pbox[2] + LABEL_MARGIN - cbox[0]
+            if gap > 0:
+                need_right = max(need_right, gap)
+        else:
+            # Collider is to the right: need to shift our right edge leftward.
+            gap = cbox[2] + LABEL_MARGIN - pbox[0]
+            if gap > 0:
+                need_left = max(need_left, gap)
+
+    # If squeezed from both sides, nudging can't help.
+    if need_right > 0 and need_left > 0:
+        return None
+
+    # Add a tiny epsilon so the shifted edge clears the strict-less-than
+    # overlap check rather than landing exactly on the boundary.
+    _EPS = 0.1
+    shift = need_right - need_left
+    if shift > 0:
+        shift += _EPS
+    elif shift < 0:
+        shift -= _EPS
+    if abs(shift) > max_nudge:
+        return None
+
+    nudged = LabelPlacement(
+        station_id=candidate.station_id,
+        text=candidate.text,
+        x=candidate.x + shift,
+        y=candidate.y,
+        above=candidate.above,
+    )
+    if _has_collision(nudged, existing):
+        return None
+    return nudged
+
+
+def _edge_solo(
+    stations: list[Station],
+    section_y_range: dict[str, tuple[float, float]],
+) -> dict[str, tuple[bool, bool]]:
+    """Determine whether each section's Y extremes have a sole station.
+
+    Returns a dict mapping section_id -> (lo_solo, hi_solo).  The edge
+    station override (prefer outward labels) should only apply when the
+    extreme Y has a single station; otherwise it kills alternation on
+    crowded tracks.
+    """
+    from collections import Counter
+
+    result: dict[str, tuple[bool, bool]] = {}
+    sec_ys: dict[str, list[float]] = {}
+    for s in stations:
+        if s.section_id and s.section_id in section_y_range:
+            sec_ys.setdefault(s.section_id, []).append(s.y)
+
+    for sec_id, ys in sec_ys.items():
+        y_lo, y_hi = section_y_range[sec_id]
+        counts = Counter(ys)
+        result[sec_id] = (counts.get(y_lo, 0) == 1, counts.get(y_hi, 0) == 1)
+
+    return result
+
+
+def _compute_port_label_preference(
+    graph: MetroGraph,
+    max_dx: float = 0.0,
+) -> dict[str, bool]:
+    """Determine preferred label side for stations connected to nearby off-Y ports.
+
+    When a station connects to a port at a different Y **and** the port is
+    horizontally close, the diagonal route between them occupies the space
+    on that side.  The label should go on the opposite side to avoid
+    overlapping the route.
+
+    *max_dx* is the maximum horizontal distance between station and port
+    for the override to apply.  Stations far from their port have enough
+    horizontal room for the diagonal to clear the label.
+
+    Returns a dict mapping station_id -> preferred_above (True = above).
+    Only stations with a clear preference are included.
+    """
+    result: dict[str, bool] = {}
+    for edge in graph.edges:
+        src, tgt = graph.edge_endpoints(edge)
+
+        # Only consider station -> exit port edges.  Exit routes depart
+        # from the station toward the section boundary and can pass
+        # through the label area.  Entry routes arrive via L-shaped
+        # inter-section routing and rarely conflict with labels.
+        if not (tgt.is_port and not src.is_port):
+            continue
+        port_info = graph.ports.get(tgt.id)
+        if not port_info or port_info.is_entry:
+            continue
+
+        station, port = src, tgt
+        dy = port.y - station.y
+        if abs(dy) < 1:
+            continue
+
+        # Only override when the port is close enough that the
+        # diagonal route would visually clash with the label.
+        if max_dx > 0 and abs(port.x - station.x) > max_dx:
+            continue
+
+        # Port is below station -> route goes down -> prefer label above
+        # Port is above station -> route goes up -> prefer label below
+        preferred_above = dy > 0
+        if station.id in result and result[station.id] != preferred_above:
+            # Conflicting ports on both sides; no preference
+            del result[station.id]
+        else:
+            result[station.id] = preferred_above
+
+    return result
+
+
+def _diagonal_prefer_above(graph: MetroGraph, station: Station) -> bool:
+    """Whether a tilted label should flip above the trunk for *station*.
+
+    Diagonal labels otherwise always hang below the trunk.  When a fork
+    sibling sits directly below a station (same column, a lower track) and
+    nothing sits above it, the below label would cross that branch's route, so
+    flip it above where it is clear.  Conservative: fires only for a station
+    that is the top of a same-column stack in an LR/RL section.
+    """
+    if not station.section_id:
+        return False
+    sec = graph.sections.get(station.section_id)
+    if sec is None or sec.direction not in ("LR", "RL"):
+        return False
+    below = above = False
+    for other in graph.stations.values():
+        if (
+            other is station
+            or other.is_port
+            or other.is_hidden
+            or other.section_id != station.section_id
+        ):
+            continue
+        if abs(other.x - station.x) > X_SPACING * 0.5:
+            continue
+        if other.y > station.y + 1:
+            below = True
+        elif other.y < station.y - 1:
+            above = True
+    return below and not above
+
+
+def _apply_edge_override(
+    station: Station,
+    start_above: bool,
+    section_y_range: dict[str, tuple[float, float]],
+    sections_with_multiline: set[str],
+    edge_solo: dict[str, tuple[bool, bool]],
+) -> bool:
+    """Apply the edge-station outward-label override when appropriate."""
+    if (
+        not station.section_id
+        or station.section_id in sections_with_multiline
+        or station.section_id not in section_y_range
+    ):
+        return start_above
+
+    y_lo, y_hi = section_y_range[station.section_id]
+    lo_solo, hi_solo = edge_solo.get(station.section_id, (True, True))
+    if y_lo < y_hi:
+        if station.y == y_lo and lo_solo:
+            return True
+        if station.y == y_hi and hi_solo:
+            return False
+    return start_above
+
+
+def _compute_diamond_branch_siblings(graph: MetroGraph) -> dict[str, Station]:
+    """Map each 2-way fork/join diamond branch station id to its sibling branch.
+
+    Narrowed to clean, column-aligned diamonds via :func:`_iter_symmetric_diamonds`
+    so a hidden/port/off-track/cross-section branch never gets paired up as a
+    label-side sibling.
+    """
+    from nf_metro.layout.phases.fan_bundles import _iter_symmetric_diamonds
+
+    siblings: dict[str, Station] = {}
+    for _fork, lo, hi, _join in _iter_symmetric_diamonds(graph):
+        if abs(lo.y - hi.y) < SAME_COORD_TOLERANCE:
+            continue
+        siblings[lo.id] = hi
+        siblings[hi.id] = lo
+    return siblings
+
+
+def _make_obstacle_placements(
+    obstacles: list[tuple[float, float, float, float]] | None,
+) -> list[LabelPlacement]:
+    """Create phantom LabelPlacement entries for obstacle bounding boxes.
+
+    These participate in collision detection but are filtered out before
+    the final placement list is returned.
+    """
+    if not obstacles:
+        return []
+    return [
+        LabelPlacement(
+            station_id=f"__obstacle_{i}",
+            text="",
+            x=(bbox[0] + bbox[2]) / 2,
+            y=bbox[1],
+            above=False,
+            obstacle_bbox=bbox,
+        )
+        for i, bbox in enumerate(obstacles)
+    ]
+
+
+def _trial_cost(
+    stations: list[Station],
+    graph: MetroGraph,
+    label_offset: float,
+    station_offsets: dict[tuple[str, str], float] | None,
+    section_y_range: dict[str, tuple[float, float]],
+    sections_with_multiline: set[str],
+    flip: bool,
+    icon_obstacles: list[tuple[float, float, float, float]] | None = None,
+    port_pref: dict[str, bool] | None = None,
+    panel_extents: dict[str, tuple[float, float]] | None = None,
+    interchange_spans: dict[str, tuple[float, float]] | None = None,
+) -> float:
+    """Count label collision cost for a section using the given alternation.
+
+    Returns a score where lower is better: each collision-resolution flip
+    costs 1, each push (still colliding after flip) costs 2.  A small
+    fractional penalty is added for labels that face inward (toward the
+    section's Y center, i.e. into the route-line bundle), weighted by
+    label width so the longest labels dominate the tiebreaker.
+    """
+    solo = _edge_solo(stations, section_y_range)
+
+    # Compute section Y midpoint for inward-facing penalty
+    sec_id = stations[0].section_id if stations else None
+    if sec_id and sec_id in section_y_range:
+        y_lo, y_hi = section_y_range[sec_id]
+        y_mid = (y_lo + y_hi) / 2
+    else:
+        y_mid = None
+
+    placements: list[LabelPlacement] = _make_obstacle_placements(icon_obstacles)
+    cost: float = 0
+    for station in stations:
+        if station_offsets:
+            line_offs = [
+                station_offsets.get((station.id, lid), 0.0)
+                for lid in graph.station_lines(station.id)
+            ]
+            min_off = min(line_offs) if line_offs else 0.0
+            max_off = max(line_offs) if line_offs else 0.0
+        else:
+            min_off = max_off = 0.0
+        rail_panel = (
+            _rail_panel_label_offsets(station, panel_extents)
+            if panel_extents is not None
+            else None
+        )
+        if rail_panel is not None:
+            min_off, max_off = rail_panel
+        if interchange_spans is not None:
+            ic_span = _interchange_span_label_offsets(station, interchange_spans)
+            if ic_span is not None:
+                min_off, max_off = ic_span
+
+        start_above = station.layer % 2 == 1
+        if flip:
+            start_above = not start_above
+
+        rail_side = _rail_label_side(graph, station)
+
+        start_above = _apply_edge_override(
+            station,
+            start_above,
+            section_y_range,
+            sections_with_multiline,
+            solo,
+        )
+
+        if port_pref and station.id in port_pref:
+            start_above = port_pref[station.id]
+
+        if rail_side is not None:
+            start_above = rail_side
+
+        candidate = _try_place(station, label_offset, start_above, min_off, max_off)
+
+        if _has_collision(candidate, placements):
+            # Try a small horizontal nudge before flipping sides.
+            nudged = _nudge_to_clear(candidate, placements)
+            if nudged is not None:
+                cost += 0.1  # small penalty for nudge (better than flip)
+                candidate = nudged
+            else:
+                cost += 1
+                candidate = _try_place(
+                    station, label_offset, not start_above, min_off, max_off
+                )
+                if _has_collision(candidate, placements):
+                    cost += 2
+                    direction = -1 if not start_above else 1
+                    if direction < 0:
+                        y = station.y + min_off - label_offset * COLLISION_MULTIPLIER
+                    else:
+                        y = station.y + max_off + label_offset * COLLISION_MULTIPLIER
+                    candidate = LabelPlacement(
+                        station_id=station.id,
+                        text=station.label,
+                        x=station.x,
+                        y=y,
+                        above=(direction < 0),
+                    )
+
+        # Small tiebreaker: penalize labels that face inward (toward
+        # the section Y center, i.e. into the route-line bundle),
+        # weighted by label width so longer labels drive the decision.
+        if y_mid is not None and y_lo < y_hi:  # type: ignore[possibly-undefined]
+            if not candidate.above and station.y < y_mid:
+                cost += label_text_width(station.label) * 0.001
+            elif candidate.above and station.y > y_mid:
+                cost += label_text_width(station.label) * 0.001
+
+        placements.append(candidate)
+
+    return cost
+
+
+@dataclass
+class _LabelCtx:
+    """Pre-computed state shared by the per-station label placers."""
+
+    graph: MetroGraph
+    label_offset: float
+    station_offsets: dict[tuple[str, str], float] | None
+    label_angle: float
+    section_y_range: dict[str, tuple[float, float]]
+    sections_with_multiline: set[str]
+    solo: dict[str, tuple[bool, bool]]
+    port_pref: dict[str, bool]
+    section_flip: dict[str, bool]
+    safe_offsets: dict[str, tuple[float, float]]
+    panel_extents: dict[str, tuple[float, float]]
+    interchange_spans: dict[str, tuple[float, float]]
+    tb_positive_fan: set[str]
+
+
+def _build_label_ctx(
+    graph: MetroGraph,
+    label_offset: float,
+    station_offsets: dict[tuple[str, str], float] | None,
+    icon_obstacles: list[tuple[float, float, float, float]] | None,
+    label_angle: float,
+) -> tuple[_LabelCtx, list[Station]]:
+    """Sort the labelled stations and pre-compute the placement context."""
+    sorted_stations = sorted(
+        (
+            s
+            for s in graph.stations.values()
+            if not s.is_port
+            and not s.is_hidden
+            and not s.is_terminus
+            and s.label.strip()
+        ),
+        key=lambda s: (s.layer, s.track),
+    )
+
+    # Per-section Y extremes for LR/RL sections so edge stations prefer
+    # outward-facing labels, centering visual content.  Sections with
+    # multi-line labels are skipped so consistent layer alternation avoids
+    # cascading collisions between the taller labels.
+    section_y_range: dict[str, tuple[float, float]] = {}
+    sections_with_multiline: set[str] = set()
+    for s in sorted_stations:
+        if not s.section_id:
+            continue
+        if "\n" in s.label:
+            sections_with_multiline.add(s.section_id)
+        sec = graph.sections.get(s.section_id)
+        if not sec or sec.direction not in ("LR", "RL"):
+            continue
+        if s.section_id not in section_y_range:
+            section_y_range[s.section_id] = (s.y, s.y)
+        else:
+            lo, hi = section_y_range[s.section_id]
+            section_y_range[s.section_id] = (min(lo, s.y), max(hi, s.y))
+
+    # Extend section Y ranges with port station positions so single-track
+    # sections with off-track ports get outward-facing label preference.
+    for s in graph.stations.values():
+        if not s.is_port or not s.section_id:
+            continue
+        if s.section_id not in section_y_range:
+            continue
+        lo, hi = section_y_range[s.section_id]
+        section_y_range[s.section_id] = (min(lo, s.y), max(hi, s.y))
+
+    solo = _edge_solo(sorted_stations, section_y_range)
+    port_pref = _compute_port_label_preference(graph, max_dx=PORT_LABEL_MAX_DX)
+    panel_extents = _rail_panel_extents(graph)
+    interchange_spans = _interchange_span_extents(graph)
+
+    # Trial both alternation patterns per section, pick the better one.
+    section_flip: dict[str, bool] = {}
+    sec_groups: dict[str, list[Station]] = {}
+    for s in sorted_stations:
+        if s.section_id and s.section_id in section_y_range:
+            sec_groups.setdefault(s.section_id, []).append(s)
+    for sec_id, sec_stations in sec_groups.items():
+        if len(sec_stations) < 2:
+            continue
+        args = (
+            sec_stations,
+            graph,
+            label_offset,
+            station_offsets,
+            section_y_range,
+            sections_with_multiline,
+        )
+        cost_default = _trial_cost(
+            *args,
+            flip=False,
+            icon_obstacles=icon_obstacles,
+            port_pref=port_pref,
+            panel_extents=panel_extents,
+            interchange_spans=interchange_spans,
+        )
+        cost_flipped = _trial_cost(
+            *args,
+            flip=True,
+            icon_obstacles=icon_obstacles,
+            port_pref=port_pref,
+            panel_extents=panel_extents,
+            interchange_spans=interchange_spans,
+        )
+        if cost_flipped < cost_default:
+            section_flip[sec_id] = True
+
+    safe_offsets = _compute_safe_offsets(
+        sorted_stations, label_offset, station_offsets, graph
+    )
+
+    from nf_metro.layout.routing.reversal import tb_positive_fan_sections
+
+    tb_positive_fan = tb_positive_fan_sections(graph)
+
+    ctx = _LabelCtx(
+        graph=graph,
+        label_offset=label_offset,
+        station_offsets=station_offsets,
+        label_angle=label_angle,
+        section_y_range=section_y_range,
+        sections_with_multiline=sections_with_multiline,
+        solo=solo,
+        port_pref=port_pref,
+        section_flip=section_flip,
+        safe_offsets=safe_offsets,
+        panel_extents=panel_extents,
+        interchange_spans=interchange_spans,
+        tb_positive_fan=tb_positive_fan,
+    )
+    return ctx, sorted_stations
+
+
+def _places_label_beside_pill(graph: MetroGraph, station: Station) -> bool:
+    """Whether the station's label sits beside its pill (vertical-flow section).
+
+    A vertical flow (TB/BT) runs its trunk down Y and stacks lines along X, so
+    its label sits to the side instead of above/below.
+    """
+    if not station.section_id:
+        return False
+    sec = graph.sections.get(station.section_id)
+    return bool(sec and lanes_run_along_x(sec.direction))
+
+
+def _label_anchor_offsets(ctx: _LabelCtx, station: Station) -> tuple[float, float]:
+    """Offsets a label hangs from: the pill edge, or the band it belongs to.
+
+    Measured from the outermost served line rather than ``station.y``, and
+    widened to the whole rail panel or interchange span when the station
+    belongs to one, so the label clears every marker on that band.
+    """
+    min_off, max_off = _pill_offsets(ctx.graph, station, ctx.station_offsets)
+    rail_panel = _rail_panel_label_offsets(station, ctx.panel_extents)
+    if rail_panel is not None:
+        min_off, max_off = rail_panel
+    ic_span = _interchange_span_label_offsets(station, ctx.interchange_spans)
+    if ic_span is not None:
+        min_off, max_off = ic_span
+    return min_off, max_off
+
+
+def _place_station_label(
+    ctx: _LabelCtx,
+    station: Station,
+    placements: list[LabelPlacement],
+) -> LabelPlacement:
+    """Place one station's label, dispatching by section style."""
+    graph = ctx.graph
+    min_off, max_off = _label_anchor_offsets(ctx, station)
+
+    if _places_label_beside_pill(graph, station):
+        return _place_tb_label(ctx, station, placements)
+    rail_side = _rail_label_side(graph, station)
+    if ctx.label_angle:
+        return _place_angled_label(ctx, station, min_off, max_off, rail_side)
+    return _place_alternating_label(
+        ctx, station, placements, min_off, max_off, rail_side
+    )
+
+
+def _place_tb_label(
+    ctx: _LabelCtx,
+    station: Station,
+    placements: list[LabelPlacement],
+) -> LabelPlacement:
+    """Place a TB-section label beside the horizontal pill (left, else right)."""
+    graph = ctx.graph
+    lines = graph.station_lines(station.id)
+    # The pill spans the bundle as drawn, which sits to one side of the station
+    # X rather than centred.  Read the side from the same lane sign the draw
+    # accessor uses -- a downward (TB) rotation rides x - offset, its upward (BT)
+    # image x + offset -- so the label clears the real pill rather than a mirror
+    # of it.  A positive-fan section overrides that to the +x side.
+    # Only reached for a station whose section_id resolves.
+    section = graph.sections[station.section_id or ""]
+    sign = AxisFrame.secondary_sign_for(section.direction)
+    if station.section_id in ctx.tb_positive_fan:
+        sign = 1.0
+    offsets = ctx.station_offsets
+    if offsets is not None:
+        drawn = [sign * offsets.get((station.id, lid), 0.0) for lid in lines]
+    else:
+        half = (len(lines) - 1) * TB_LINE_Y_OFFSET / 2
+        drawn = [-half, half]
+    pill_left = station.x + min(drawn) - TB_PILL_EDGE_OFFSET
+    pill_right = station.x + max(drawn) + TB_PILL_EDGE_OFFSET
+    candidate = LabelPlacement(
+        station_id=station.id,
+        text=station.label,
+        x=pill_left - TB_LABEL_H_SPACING,
+        y=station.y,
+        above=True,
+        text_anchor="end",
+        dominant_baseline="central",
+    )
+    if _has_collision(candidate, placements):
+        candidate = LabelPlacement(
+            station_id=station.id,
+            text=station.label,
+            x=pill_right + TB_LABEL_H_SPACING,
+            y=station.y,
+            above=True,
+            text_anchor="start",
+            dominant_baseline="central",
+        )
+    if station.section_id:
+        tb_sec = graph.sections.get(station.section_id)
+        if tb_sec and tb_sec.bbox_w > 0:
+            margin = LABEL_BBOX_MARGIN
+            lx_min, _, lx_max, _ = _label_bbox(candidate)
+            lx_min -= margin
+            lx_max += margin
+            if lx_min < tb_sec.bbox_x:
+                old_right = tb_sec.bbox_x + tb_sec.bbox_w
+                tb_sec.bbox_x = lx_min
+                tb_sec.bbox_w = old_right - lx_min
+            if lx_max > tb_sec.bbox_x + tb_sec.bbox_w:
+                tb_sec.bbox_w = lx_max - tb_sec.bbox_x
+    return candidate
+
+
+def _place_angled_label(
+    ctx: _LabelCtx,
+    station: Station,
+    min_off: float,
+    max_off: float,
+    rail_side: bool | None,
+) -> LabelPlacement:
+    """Place an opt-in diagonal label, anchored at the pill and tilted.
+
+    Angled labels sit below the trunk on the same side (like real transit
+    maps), flipping above only to clear a fork sibling directly below.  A
+    single-rail station labels outward: the topmost rail above (sharing the
+    panel's top-rail baseline), every other rail below.
+    """
+    graph = ctx.graph
+    label_angle = ctx.label_angle
+    if rail_side is not None:
+        diag_above = rail_side
+    else:
+        diag_above = _diagonal_prefer_above(graph, station)
+    if diag_above:
+        candidate = LabelPlacement(
+            station_id=station.id,
+            text=station.label,
+            x=station.x,
+            y=station.y + min_off - ctx.label_offset - DIAGONAL_LABEL_OFFSET,
+            above=True,
+            angle=-label_angle,
+            text_anchor="start",
+        )
+    else:
+        candidate = LabelPlacement(
+            station_id=station.id,
+            text=station.label,
+            x=station.x,
+            y=station.y + max_off + ctx.label_offset + DIAGONAL_LABEL_OFFSET,
+            above=False,
+            angle=label_angle,
+            text_anchor="start",
+        )
+    if station.section_id:
+        sec = graph.sections.get(station.section_id)
+        if sec is not None and sec.bbox_w > 0:
+            _grow_section_for_box(sec, _label_bbox(candidate))
+    return candidate
+
+
+def _initial_label_side(
+    ctx: _LabelCtx,
+    station: Station,
+    rail_side: bool | None,
+) -> bool:
+    """Initial above/below choice for an alternating (non-angled) label."""
+    # Alternate by layer (column): even layers below, odd layers above.
+    start_above = station.layer % 2 == 1
+    if station.section_id and ctx.section_flip.get(station.section_id, False):
+        start_above = not start_above
+    # Isolated edge stations in LR/RL sections prefer outward labels.
+    start_above = _apply_edge_override(
+        station,
+        start_above,
+        ctx.section_y_range,
+        ctx.sections_with_multiline,
+        ctx.solo,
+    )
+    # Override when a port route would clash with the label.
+    if station.id in ctx.port_pref:
+        start_above = ctx.port_pref[station.id]
+    # Rail mode forces single-rail labels outward (never between rails).
+    if rail_side is not None:
+        start_above = rail_side
+    return start_above
+
+
+def _place_alternating_candidate(
+    ctx: _LabelCtx,
+    station: Station,
+    placements: list[LabelPlacement],
+    min_off: float,
+    max_off: float,
+    start_above: bool,
+) -> LabelPlacement:
+    """Try the preferred side, then nudge / flip / push to clear collisions."""
+    safe_above, safe_below = ctx.safe_offsets.get(
+        station.id, (ctx.label_offset, ctx.label_offset)
+    )
+    eff_offset = safe_above if start_above else safe_below
+    candidate = _try_place(station, eff_offset, start_above, min_off, max_off)
+
+    if _has_collision(candidate, placements):
+        # Try a small horizontal nudge before flipping sides.
+        nudged = _nudge_to_clear(candidate, placements)
+        if nudged is not None:
+            candidate = nudged
+        else:
+            alt_offset = safe_below if start_above else safe_above
+            candidate = _try_place(
+                station, alt_offset, not start_above, min_off, max_off
+            )
+            if _has_collision(candidate, placements):
+                # Push further in the non-default direction.
+                direction = -1 if not start_above else 1
+                if direction < 0:
+                    y = station.y + min_off - safe_above * COLLISION_MULTIPLIER
+                else:
+                    y = station.y + max_off + safe_below * COLLISION_MULTIPLIER
+                candidate = LabelPlacement(
+                    station_id=station.id,
+                    text=station.label,
+                    x=station.x,
+                    y=y,
+                    above=(direction < 0),
+                )
+
+    if _has_collision(candidate, placements):
+        candidate = _clear_obstacle_overlap(
+            station, candidate, placements, min_off, max_off, safe_above, safe_below
+        )
+    return candidate
+
+
+def _clear_obstacle_overlap(
+    station: Station,
+    candidate: LabelPlacement,
+    placements: list[LabelPlacement],
+    min_off: float,
+    max_off: float,
+    safe_above: float,
+    safe_below: float,
+) -> LabelPlacement:
+    """Resolve a label overlapping an obstacle (e.g. a terminus file icon).
+
+    Flip to the opposite side of the station first (keeps the label close);
+    only push past the obstacle as a last resort.  When both sides have
+    obstacles, prefer whichever keeps the label closer to the station -- a
+    slight overlap beats pushing into an adjacent row.
+    """
+    cbox = _label_bbox(candidate)
+    for p in placements:
+        if p.obstacle_bbox is None:
+            continue
+        obox = _label_bbox(p)
+        if not _boxes_overlap(cbox, obox):
+            continue
+
+        flip_above = not candidate.above
+        flip_off = safe_above if flip_above else safe_below
+        flipped = _try_place(station, flip_off, flip_above, min_off, max_off)
+        if not _has_collision(flipped, placements):
+            return flipped
+
+        flip_dist = abs(flipped.y - station.y)
+        orig_dist = abs(candidate.y - station.y)
+        if flip_dist < orig_dist:
+            candidate = flipped
+        break
+    return candidate
+
+
+def _clamp_label_to_section(
+    ctx: _LabelCtx,
+    station: Station,
+    candidate: LabelPlacement,
+    min_off: float,
+    max_off: float,
+    placements: list[LabelPlacement],
+) -> LabelPlacement:
+    """Keep a label within its section bbox, growing the box where needed."""
+    if not station.section_id:
+        return candidate
+    sec = ctx.graph.sections.get(station.section_id)
+    if not (sec and sec.bbox_w > 0):
+        return candidate
+
+    text_half_w = label_text_width(candidate.text) / 2
+    margin = LABEL_BBOX_MARGIN
+    # Horizontal: expand section bbox if needed, keeping the label centered
+    # on its station.
+    label_left = candidate.x - text_half_w - margin
+    label_right = candidate.x + text_half_w + margin
+    if label_left < sec.bbox_x:
+        old_right = sec.bbox_x + sec.bbox_w
+        sec.bbox_x = label_left
+        sec.bbox_w = old_right - label_left
+    if label_right > sec.bbox_x + sec.bbox_w:
+        sec.bbox_w = label_right - sec.bbox_x
+    return _clamp_label_vertical(
+        candidate,
+        sec,
+        station,
+        ctx.label_offset,
+        min_off,
+        max_off,
+        margin,
+        placements,
+    )
+
+
+def _place_alternating_label(
+    ctx: _LabelCtx,
+    station: Station,
+    placements: list[LabelPlacement],
+    min_off: float,
+    max_off: float,
+    rail_side: bool | None,
+) -> LabelPlacement:
+    """Place a standard label by layer alternation with collision handling."""
+    start_above = _initial_label_side(ctx, station, rail_side)
+    candidate = _place_alternating_candidate(
+        ctx, station, placements, min_off, max_off, start_above
+    )
+    return _clamp_label_to_section(
+        ctx, station, candidate, min_off, max_off, placements
+    )
+
+
+def place_labels(
+    graph: MetroGraph,
+    label_offset: float = LABEL_OFFSET,
+    station_offsets: dict[tuple[str, str], float] | None = None,
+    icon_obstacles: list[tuple[float, float, float, float]] | None = None,
+    routes: list["RoutedPath"] | None = None,
+    label_angle: float = 0.0,
+    lift_wrapped_off_trunks: bool = True,
+) -> list[LabelPlacement]:
+    """Place station labels, alternating above/below stations.
+
+    Strategy:
+    1. Default: alternate above/below based on layer index.
+    2. If it collides with an existing label, try the other side.
+    3. If still colliding, push further away.
+
+    Per-section trial: for each LR/RL section with multiple stations,
+    both alternation patterns are tested and the one with fewer
+    collisions is used.
+
+    When ``label_angle`` is non-zero, LR/RL section labels are instead
+    anchored at the pill and tilted (transit-map style); they hang on one
+    side and pack by their narrow rotated footprint.
+
+    ``lift_wrapped_off_trunks`` runs the final render-time passes that pull a
+    wrapped label back to its un-pushed anchor: one when the wrapped block no
+    longer needs the both-sides-collision push-out
+    (:func:`_relax_collision_pushed_labels`), one when the grown block overruns
+    a foreign trunk.  Callers measuring overlaps for the layout (the spacing
+    search probe) pass False so the engine sees the pre-lift geometry and the
+    deliberate neighbour graze never trips the label-overlap guard.
+    """
+    ctx, sorted_stations = _build_label_ctx(
+        graph, label_offset, station_offsets, icon_obstacles, label_angle
+    )
+
+    placements: list[LabelPlacement] = _make_obstacle_placements(icon_obstacles)
+    for station in sorted_stations:
+        placements.append(_place_station_label(ctx, station, placements))
+
+    diamond_siblings = _compute_diamond_branch_siblings(graph)
+    if diamond_siblings:
+        _prefer_diamond_labels_outward(
+            placements, graph, diamond_siblings, station_offsets, label_offset
+        )
+
+    if routes:
+        _avoid_diagonal_routes(placements, graph, routes, station_offsets)
+        _avoid_horizontal_strikethrough(placements, graph, routes, station_offsets)
+        _avoid_diagonal_strikethrough(placements, graph, routes, station_offsets)
+
+    _wrap_overlapping_labels(ctx, placements)
+
+    if lift_wrapped_off_trunks:
+        _relax_collision_pushed_labels(
+            placements, graph, station_offsets, ctx.safe_offsets, label_offset
+        )
+        _lift_wrapped_labels_off_foreign_trunks(
+            placements, graph, routes, station_offsets, ctx.safe_offsets, label_offset
+        )
+
+    if graph.label_angle:
+        _apply_rail_label_angle(
+            placements, graph, float(graph.label_angle), station_offsets
+        )
+
+    return [p for p in placements if p.obstacle_bbox is None]
+
+
+_RAIL_LABEL_PANEL_CLEARANCE = 4.0
+
+
+def _rail_panel_marker_extents(
+    graph: MetroGraph,
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> dict[str, tuple[float, float]]:
+    """Per-rail-section (top_marker_y, bottom_marker_y) from rendered pills.
+
+    Reports the topmost pill top and bottommost pill bottom across every
+    visible station in the panel (rather than the rail-centre Ys of
+    :func:`_rail_panel_extents`).  A diagonal label cleared only to the rail
+    centre rakes the markers of lone lower-rail stations whose pills extend
+    past that centre; clearing to the pill edge keeps the angled text off
+    those markers.  Returns an empty map when the graph has no rail sections.
+    """
+    from nf_metro.layout.engine import _station_marker_bbox
+
+    extents: dict[str, tuple[float, float]] = {}
+    if not graph._rail_y:
+        return extents
+    for sid, st in graph.stations.items():
+        if not st.section_id or not graph.is_rail_section(st.section_id):
+            continue
+        mb = _station_marker_bbox(graph, sid, station_offsets)
+        if mb is None:
+            continue
+        _, m_top, _, m_bot = mb
+        cur = extents.get(st.section_id)
+        if cur is None:
+            extents[st.section_id] = (m_top, m_bot)
+        else:
+            extents[st.section_id] = (min(cur[0], m_top), max(cur[1], m_bot))
+    return extents
+
+
+def _apply_rail_label_angle(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    label_angle: float,
+    station_offsets: dict[tuple[str, str], float] | None = None,
+) -> None:
+    """Tilt rail-section station labels by *label_angle* degrees.
+
+    Only rail-mode panels are affected (the normal layout path has its own
+    diagonal-label machinery).  A below-bundle label trails down-and-right from
+    the pill (``text-anchor=start``); an above-bundle label trails up-and-left
+    with its bottom-right corner at the pill (``text-anchor=end``), so each
+    name leads directly into its station marker.  The rail column step is sized
+    for the rotated label's horizontal projection by ``_label_aware_x_spacing``
+    so the panel packs tighter.
+
+    The clearance is measured to the panel's outer *pill* edges, not its rail
+    centres, so a down-right label never rakes the marker of a lone lower-rail
+    station sitting one rail down and a column over.
+    """
+    panel_extents = _rail_panel_marker_extents(graph, station_offsets)
+    for p in placements:
+        if p.obstacle_bbox is not None or not p.station_id:
+            continue
+        st = graph.stations.get(p.station_id)
+        if st is None or st.is_port:
+            continue
+        if not (st.section_id and graph.is_rail_section(st.section_id)):
+            continue
+        # Blank termini render as icons, not text; leave them alone.
+        if st.is_blank_terminus:
+            continue
+        p.angle = label_angle
+        p.x = st.x
+        # An above-bundle label rises up-and-to-the-left with its bottom-right
+        # corner seated at the pill; a below-bundle label trails down-and-right
+        # from the pill.
+        p.text_anchor = "end" if p.above else "start"
+        # Tilting adds vertical extent; nudge the anchor so the rotated label
+        # clears the whole rail panel (above its top pill / below its bottom
+        # pill) rather than dipping back over a middle rail or a lower-rail
+        # marker.
+        extent = panel_extents.get(st.section_id)
+        if extent is not None:
+            top_y, bot_y = extent
+            _, by0, _, by1 = _label_bbox(p)
+            if p.above and by1 > top_y - _RAIL_LABEL_PANEL_CLEARANCE:
+                p.y -= by1 - (top_y - _RAIL_LABEL_PANEL_CLEARANCE)
+            elif not p.above and by0 < bot_y + _RAIL_LABEL_PANEL_CLEARANCE:
+                p.y += (bot_y + _RAIL_LABEL_PANEL_CLEARANCE) - by0
+
+
+# Upper bound on wrapping rounds.  Each round narrows one offending label by
+# at least one line-width step, so this comfortably exceeds the steps any
+# realistic label needs to shrink from full width to the legibility floor.
+_WRAP_MAX_ROUNDS = 200
+
+
+def _find_clear_reflow_candidate(
+    ctx: _LabelCtx,
+    placement: LabelPlacement,
+    others: list[LabelPlacement],
+    markers: dict[str, tuple[float, float, float, float]],
+) -> LabelPlacement | None:
+    """Where a label whose text has just been re-flowed should move, if anywhere.
+
+    Re-flowing rewrites text alone, so the placement keeps the side and anchor
+    derived from a single flat line.  A re-flowed block is roughly half as wide
+    and twice as tall as that line, so a side which clears the flat footprint
+    can collide for the block while the opposite side stays free.  Both sides
+    are re-offered to the block, in alternation order, and yield to every other
+    placement rather than only to those placed earlier, because this label is
+    the one moving.
+
+    Only the two pill-centred anchors are offered -- no nudge, no push-out.  A
+    re-flowed block is narrow enough that a clear side accepts it centred, and
+    sliding a narrow block sideways to squeeze past a neighbour butts the two
+    labels into one another and reads as a single run of text.  ``None`` when
+    the placement is already clear or neither side is wholly clear, leaving the
+    engine's spread loop to widen for whatever remains.
+
+    A label beside its pill is declined whatever drove its re-flow.  The two
+    anchors offered here hang centred above and below the station, which is
+    where a vertical-flow section runs its own trunk, and such a placement
+    anchors from a pill edge (``text_anchor`` start/end, ``central`` baseline),
+    so adopting a centred anchor's coordinates would draw a box other than the
+    one measured here -- across its own pill.  Relieving one means flipping it
+    to the far side of its pill, which is :func:`_place_tb_label`'s choice.
+    """
+    station = ctx.graph.stations.get(placement.station_id)
+    if station is None or ctx.label_angle:
+        return None
+    if _places_label_beside_pill(ctx.graph, station):
+        return None
+    if _label_clear_of_everything(placement, others, markers):
+        return None
+    min_off, max_off = _label_anchor_offsets(ctx, station)
+    safe_above, safe_below = ctx.safe_offsets.get(
+        station.id, (ctx.label_offset, ctx.label_offset)
+    )
+    preferred = _initial_label_side(ctx, station, _rail_label_side(ctx.graph, station))
+    for above in (preferred, not preferred):
+        candidate = _try_place(
+            station,
+            safe_above if above else safe_below,
+            above,
+            min_off,
+            max_off,
+            placement.text,
+        )
+        if _label_clear_of_everything(candidate, others, markers):
+            return candidate
+    return None
+
+
+def _reside_reflowed_label(
+    ctx: _LabelCtx,
+    placement: LabelPlacement,
+    placements: list[LabelPlacement],
+    markers: dict[str, tuple[float, float, float, float]],
+) -> bool:
+    """Move a re-flowed label to a clear side of its pill; whether it moved."""
+    others = [p for p in placements if p is not placement]
+    candidate = _find_clear_reflow_candidate(ctx, placement, others, markers)
+    if candidate is None:
+        return False
+    placement.x = candidate.x
+    placement.y = candidate.y
+    placement.above = candidate.above
+    return True
+
+
+def _wrap_overlapping_labels(
+    ctx: _LabelCtx,
+    placements: list[LabelPlacement],
+) -> None:
+    """Narrow colliding labels by wrapping them onto multiple lines.
+
+    Conditional: only labels that actually overlap a neighbour (per
+    :func:`find_label_overlaps`) are wrapped, so a clean layout is left
+    byte-identical.  Each round picks the widest wrappable offender and
+    shrinks its line budget by one character, re-wrapping the *original*
+    label.  The label grows away from its station so the extra height never
+    intrudes on the pill.  Author-specified multi-line labels are left
+    untouched -- the author already chose the breaks.
+
+    The budget bottoms out at the label's longest word, past which
+    :func:`_wrap_text_to_chars` has no whitespace left to break on and further
+    rounds cannot narrow the block.  An overlap that survives to that floor is
+    for the engine's spread loop to clear by widening spacing.
+
+    Once the rounds settle, each re-flowed label re-decides its side for the
+    block it has become (:func:`_reside_reflowed_label`).  Deferring that to
+    the end means every side is judged against the settled set of blocks
+    rather than against a neighbour the rounds have yet to finish narrowing.
+    Re-siding repeats until no label moves, because a label whose both sides
+    are taken can be freed by a later one vacating a side; a move only ever
+    lands a label wholly clear of the others, so a round can only reduce
+    collisions and the sweep settles.
+    """
+    graph = ctx.graph
+    station_offsets = ctx.station_offsets
+    by_id = {
+        p.station_id: p
+        for p in placements
+        if p.station_id
+        and not p.station_id.startswith("__")
+        and p.obstacle_bbox is None
+        and graph.stations.get(p.station_id) is not None
+    }
+    # Only re-flow single-line, un-rotated labels; respect any author-chosen
+    # breaks and leave angled labels (#527) to spread rather than wrap.
+    wrappable = {sid for sid, p in by_id.items() if "\n" not in p.text and not p.angle}
+    if not wrappable:
+        return
+
+    originals = {sid: graph.stations[sid].label for sid in by_id}
+    budgets = {sid: len(by_id[sid].text) for sid in wrappable}
+
+    def min_budget(sid: str) -> int:
+        longest_word = max((len(w) for w in originals[sid].split()), default=1)
+        return max(LABEL_WRAP_MIN_LINE_CHARS, longest_word)
+
+    for _ in range(_WRAP_MAX_ROUNDS):
+        overlaps = find_label_overlaps(graph, placements, station_offsets)
+        offender = _choose_wrap_offender(overlaps, by_id, wrappable, graph)
+        if offender is None:
+            break
+        new_budget = budgets[offender] - 1
+        if new_budget < min_budget(offender):
+            wrappable.discard(offender)
+            continue
+        budgets[offender] = new_budget
+        by_id[offender].text = _wrap_text_to_chars(originals[offender], new_budget)
+
+    reflowed = [
+        p
+        for p in placements
+        if p.station_id in by_id and p.text != originals[p.station_id]
+    ]
+    if reflowed:
+        markers = _station_marker_boxes(graph, station_offsets)
+        for _ in range(len(reflowed)):
+            moved = [
+                p
+                for p in reflowed
+                if _reside_reflowed_label(ctx, p, placements, markers)
+            ]
+            if not moved:
+                break
+
+    _expand_sections_for_wrapped_labels(placements, graph)
+
+
+def _choose_wrap_offender(
+    overlaps: list[LabelOverlap],
+    by_id: dict[str, LabelPlacement],
+    wrappable: set[str],
+    graph: MetroGraph,
+) -> str | None:
+    """Pick the widest still-wrappable label involved in any overlap.
+
+    For ``"marker"`` overlaps only the label owner can be narrowed; for
+    ``"label"`` overlaps either side is a candidate.  Narrowing the wider
+    label first does the most to clear the collision with the least wrapping.
+
+    A TB/BT label sits beside its pill, stacked vertically against its trunk
+    neighbours (:func:`_places_label_beside_pill`), so a ``"label"`` overlap
+    there is a height problem: narrowing its width only grows it taller,
+    worsening the very collision it's meant to clear.  Such a station is
+    skipped as a ``"label"``-kind offender, but remains eligible for
+    ``"marker"`` overlaps, where narrowing width relieves a horizontal
+    intrusion without that trade-off.
+    """
+    best: str | None = None
+    best_w = -1.0
+    for ov in overlaps:
+        candidates = (ov.a,) if ov.kind == "marker" else (ov.a, ov.b)
+        for sid in candidates:
+            if sid not in wrappable:
+                continue
+            if ov.kind == "label":
+                station = graph.stations.get(sid)
+                if station is not None and _places_label_beside_pill(graph, station):
+                    continue
+            w = label_text_width(by_id[sid].text)
+            if w > best_w:
+                best_w = w
+                best = sid
+    return best
+
+
+def _expand_sections_for_wrapped_labels(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+) -> None:
+    """Grow each section's bbox to contain its (now taller) wrapped labels."""
+    margin = LABEL_BBOX_MARGIN
+    for p in placements:
+        if not p.station_id or p.station_id.startswith("__") or p.obstacle_bbox:
+            continue
+        station = graph.stations.get(p.station_id)
+        if station is None or not station.section_id:
+            continue
+        sec = graph.sections.get(station.section_id)
+        if sec is None or sec.bbox_w <= 0:
+            continue
+        x_min, y_min, x_max, y_max = _label_bbox(p)
+        if y_min - margin < sec.bbox_y:
+            sec.bbox_h += sec.bbox_y - (y_min - margin)
+            sec.bbox_y = y_min - margin
+        if y_max + margin > sec.bbox_y + sec.bbox_h:
+            sec.bbox_h = (y_max + margin) - sec.bbox_y
+
+
+def _grow_section_for_box(
+    sec: Section,
+    box: tuple[float, float, float, float],
+    margin: float = LABEL_BBOX_MARGIN,
+) -> None:
+    """Grow a section bbox so it contains the given label box (plus margin)."""
+    x_min, y_min, x_max, y_max = box
+    if x_min - margin < sec.bbox_x:
+        old_right = sec.bbox_x + sec.bbox_w
+        sec.bbox_x = x_min - margin
+        sec.bbox_w = old_right - sec.bbox_x
+    if x_max + margin > sec.bbox_x + sec.bbox_w:
+        sec.bbox_w = (x_max + margin) - sec.bbox_x
+    if y_min - margin < sec.bbox_y:
+        old_bottom = sec.bbox_y + sec.bbox_h
+        sec.bbox_y = y_min - margin
+        sec.bbox_h = old_bottom - sec.bbox_y
+    if y_max + margin > sec.bbox_y + sec.bbox_h:
+        sec.bbox_h = (y_max + margin) - sec.bbox_y
+
+
+def _route_endpoints_with_offsets(
+    route: "RoutedPath",
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> list[tuple[float, float]]:
+    """A route's points with the render-time endpoint separation applied.
+
+    Label-strike tests care only about each segment's orientation, so this
+    shifts just the endpoints (the renderer's full per-line offsetting also
+    moves interior channel points).  A baked route's points are returned as
+    routed.  Reuses the renderer's offsetting so the two stay in lockstep.
+    """
+    pts = list(route.points)
+    if station_offsets and pts:
+        from nf_metro.layout.routing.common import apply_route_offsets
+
+        shifted = apply_route_offsets(route, station_offsets)
+        pts[0], pts[-1] = shifted[0], shifted[-1]
+    return pts
+
+
+def _prefer_diamond_labels_outward(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    diamond_siblings: dict[str, Station],
+    station_offsets: dict[tuple[str, str], float] | None,
+    label_offset: float,
+) -> None:
+    """Flip a 2-way fork/join diamond branch's label outward -- away from
+    its sibling branch -- when that side is free of collisions with every
+    other already-placed label.
+
+    Column-parity alternation picks a side by column index alone, so it can
+    coincidentally place a diamond branch's label facing its sibling,
+    squeezed inside the bubble where nothing but the diamond's own
+    converging routes ever needs to be.  The outside of the bubble reads
+    better, but only when nothing else already sits there: an on-trunk
+    branch's outward side is the same row as its neighbouring trunk
+    stations, so unconditionally forcing it outward can shove a
+    neighbour's label aside.  Running this once every label has settled
+    lets each branch check its outward candidate against the *whole*
+    placement list, not just whichever labels happened to be placed
+    earlier in layer order.
+    """
+    by_id = {p.station_id: p for p in placements}
+    for station_id, sibling in diamond_siblings.items():
+        placement = by_id.get(station_id)
+        station = graph.stations.get(station_id)
+        if placement is None or station is None:
+            continue
+        if placement.dominant_baseline or placement.angle:
+            continue
+        if placement.text_anchor != "middle":
+            continue
+        outward_above = sibling.y > station.y
+        if placement.above == outward_above:
+            continue
+        min_off, max_off = _pill_offsets(graph, station, station_offsets)
+        candidate = _try_place(station, label_offset, outward_above, min_off, max_off)
+        others = [p for p in placements if p is not placement]
+        if _has_collision(candidate, others):
+            continue
+        placement.x, placement.y, placement.above = (
+            candidate.x,
+            candidate.y,
+            candidate.above,
+        )
+
+
+def _avoid_diagonal_routes(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    routes: list["RoutedPath"],
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> None:
+    """Flip labels overlapping a non-horizontal route segment.
+
+    Trunk segments are horizontal by design so labels offset above or
+    below them clear naturally.  Diagonal segments (trunk-to-fan
+    transitions, off-track entries) can land on top of a label and need
+    explicit avoidance: flip the label to the opposite side of its
+    station when the flipped position is free of label and route
+    collisions; otherwise leave it.
+    """
+    diag = _foreign_route_segments(routes, station_offsets, diagonal=True)
+    if not diag:
+        return
+
+    m = LABEL_MARGIN
+
+    def hits(box: tuple[float, float, float, float]) -> bool:
+        padded = (box[0] - m, box[1] - m, box[2] + m, box[3] + m)
+        return any(
+            segment_intersects_bbox(x1, y1, x2, y2, padded)
+            for _lid, _src, _tgt, x1, y1, x2, y2 in diag
+        )
+
+    for placement in [p for p in placements if p.obstacle_bbox is None]:
+        if placement.dominant_baseline or placement.angle:
+            continue
+        if not hits(_label_bbox(placement)):
+            continue
+        station = graph.stations.get(placement.station_id)
+        if station is None:
+            continue
+        if station_offsets:
+            offs = [
+                station_offsets.get((station.id, lid), 0.0)
+                for lid in graph.station_lines(station.id)
+            ]
+            min_off, max_off = (min(offs), max(offs)) if offs else (0.0, 0.0)
+        else:
+            min_off = max_off = 0.0
+        if placement.above:
+            gap = max((station.y + min_off) - placement.y, LABEL_OFFSET)
+            trial = LabelPlacement(
+                station_id=placement.station_id,
+                text=placement.text,
+                x=placement.x,
+                y=station.y + max_off + gap,
+                above=False,
+            )
+        else:
+            gap = max(placement.y - (station.y + max_off), LABEL_OFFSET)
+            trial = LabelPlacement(
+                station_id=placement.station_id,
+                text=placement.text,
+                x=placement.x,
+                y=station.y + min_off - gap,
+                above=True,
+            )
+        siblings = [p for p in placements if p is not placement]
+        if _has_collision(trial, siblings) or hits(_label_bbox(trial)):
+            continue
+        placement.x, placement.y, placement.above = trial.x, trial.y, trial.above
+
+
+def _foreign_route_segments(
+    routes: list["RoutedPath"],
+    station_offsets: dict[tuple[str, str], float] | None,
+    *,
+    diagonal: bool,
+) -> list[tuple[str, str, str, float, float, float, float]]:
+    """Route segments usable as label-strike obstacles, offsets applied.
+
+    ``diagonal=True`` keeps non-horizontal runs (trunk-to-fan transitions,
+    off-track entries, bypass Vs); ``diagonal=False`` keeps horizontal runs
+    (trunks).  Each entry is ``(line_id, source, target, x1, y1, x2, y2)`` so a
+    caller can exclude segments whose edge the label's station carries or is an
+    endpoint of.
+    """
+    segs: list[tuple[str, str, str, float, float, float, float]] = []
+    for route in routes:
+        pts = _route_endpoints_with_offsets(route, station_offsets)
+        for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+            is_diagonal = abs(y2 - y1) >= max(abs(x2 - x1), 1.0) * DIAGONAL_SLOPE_RATIO
+            if is_diagonal != diagonal:
+                continue
+            segs.append(
+                (route.line_id, route.edge.source, route.edge.target, x1, y1, x2, y2)
+            )
+    return segs
+
+
+def _flip_labels_off_foreign_strikes(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    station_offsets: dict[tuple[str, str], float] | None,
+    segments: list[tuple[str, str, str, float, float, float, float]],
+) -> None:
+    """Flip each label whose glyph ink a foreign ``segments`` entry strikes.
+
+    A segment strikes a label only when its line is one the label's station
+    does not carry and the station is not an endpoint of the segment's edge
+    (the strike definition shared with ``_guard_no_line_strikes_label``).  A
+    struck label flips to its other side when that side is free of sibling
+    collisions and foreign strikes; one struck on both sides stays put.
+    """
+    if not segments:
+        return
+
+    for placement in [p for p in placements if p.obstacle_bbox is None]:
+        if placement.dominant_baseline or placement.angle:
+            continue
+        station = graph.stations.get(placement.station_id)
+        if station is None:
+            continue
+        carried = set(graph.station_lines(station.id))
+
+        def strikes(box: tuple[float, float, float, float]) -> bool:
+            for line_id, src, tgt, sx1, sy1, sx2, sy2 in segments:
+                if line_id in carried or src == station.id or tgt == station.id:
+                    continue
+                if segment_intersects_bbox(sx1, sy1, sx2, sy2, box):
+                    return True
+            return False
+
+        if not strikes(label_glyph_ink_bbox(placement)):
+            continue
+        min_off, max_off = _pill_offsets(graph, station, station_offsets)
+        if placement.above:
+            gap = max((station.y + min_off) - placement.y, LABEL_OFFSET)
+            trial = LabelPlacement(
+                station_id=placement.station_id,
+                text=placement.text,
+                x=placement.x,
+                y=station.y + max_off + gap,
+                above=False,
+            )
+        else:
+            gap = max(placement.y - (station.y + max_off), LABEL_OFFSET)
+            trial = LabelPlacement(
+                station_id=placement.station_id,
+                text=placement.text,
+                x=placement.x,
+                y=station.y + min_off - gap,
+                above=True,
+            )
+        siblings = [p for p in placements if p is not placement]
+        if _has_collision(trial, siblings) or strikes(label_glyph_ink_bbox(trial)):
+            continue
+        placement.x, placement.y, placement.above = trial.x, trial.y, trial.above
+
+
+def _avoid_horizontal_strikethrough(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    routes: list["RoutedPath"],
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> None:
+    """Flip a label off a foreign horizontal trunk that strikes its glyph ink.
+
+    A label hanging on the side of its station where another line's horizontal
+    run passes reads as struck through.  ``_avoid_diagonal_routes`` ignores
+    horizontal segments because labels normally clear the trunk they sit on;
+    this catches the case a *foreign* trunk (a line the station does not carry,
+    not an edge endpoint) crosses the label's glyph ink, and flips the label to
+    the opposite side when that side is free of label and ink collisions.
+    """
+    _flip_labels_off_foreign_strikes(
+        placements,
+        graph,
+        station_offsets,
+        _foreign_route_segments(routes, station_offsets, diagonal=False),
+    )
+
+
+def _avoid_diagonal_strikethrough(
+    placements: list[LabelPlacement],
+    graph: MetroGraph,
+    routes: list["RoutedPath"],
+    station_offsets: dict[tuple[str, str], float] | None,
+) -> None:
+    """Flip a label off a foreign diagonal route that strikes its glyph ink.
+
+    The diagonal counterpart of ``_avoid_horizontal_strikethrough``.
+    ``_avoid_diagonal_routes`` already flips diagonally-overlapped labels but
+    judges the flip target by the full reserved box, so it declines when the
+    target's empty margin merely grazes a diagonal even though the glyph ink
+    clears.  Judging by glyph ink (the strike measure) and over foreign lines,
+    a label with a clean opposite side flips, while one a bypass V rakes on
+    both sides stays put.
+    """
+    _flip_labels_off_foreign_strikes(
+        placements,
+        graph,
+        station_offsets,
+        _foreign_route_segments(routes, station_offsets, diagonal=True),
+    )
+
+
+def _clamp_label_vertical(
+    candidate: LabelPlacement,
+    sec: Section,
+    station: Station,
+    label_offset: float,
+    min_off: float,
+    max_off: float,
+    margin: float,
+    existing: list[LabelPlacement] | None = None,
+) -> LabelPlacement:
+    """Clamp label vertically within section bbox.
+
+    If clamping would push the label into the station pill, flip it to the
+    opposite side (provided the flipped position doesn't collide with an
+    existing label).  If both sides would overlap, expand the section bbox
+    so the label fits at its ideal position.
+    """
+    pill_top = station.y + min_off
+    pill_bottom = station.y + max_off
+    sec_top = sec.bbox_y
+    sec_bottom = sec.bbox_y + sec.bbox_h
+
+    text_h = _label_text_height(candidate.text)
+
+    if candidate.above:
+        # Label text occupies [candidate.y - text_h, candidate.y].
+        min_y = sec_top + text_h + margin
+        if candidate.y >= min_y:
+            return candidate  # fits without clamping
+
+        overshoot = min_y - candidate.y
+
+        # Clamping needed - would the clamped position overlap the pill?
+        if min_y <= pill_top - label_offset:
+            # Still enough gap after clamping
+            candidate.y = min_y
+            return candidate
+
+        # Small overshoot: prefer expanding the bbox over flipping, so
+        # the label keeps its intended above/below side (preserving
+        # alternation).
+        if overshoot <= margin:
+            sec.bbox_y -= overshoot + margin
+            sec.bbox_h += overshoot + margin
+            return candidate
+
+        # Clamped position too close to pill - try flipping to below
+        below_y = pill_bottom + label_offset
+        max_y = sec_bottom - text_h - margin
+        if below_y <= max_y:
+            flipped = LabelPlacement(
+                station_id=candidate.station_id,
+                text=candidate.text,
+                x=candidate.x,
+                y=below_y,
+                above=False,
+            )
+            if existing is None or not _has_collision(flipped, existing):
+                candidate.y = below_y
+                candidate.above = False
+                return candidate
+
+        # Neither side fits (or flip collides) - expand bbox upward
+        expand = overshoot + margin
+        sec.bbox_y -= expand
+        sec.bbox_h += expand
+        return candidate
+
+    else:
+        # Label text occupies [candidate.y, candidate.y + text_h].
+        max_y = sec_bottom - text_h - margin
+        if candidate.y <= max_y:
+            return candidate  # fits without clamping
+
+        overshoot = candidate.y - max_y
+
+        # Clamping needed - would the clamped position overlap the pill?
+        if max_y >= pill_bottom + label_offset:
+            # Still enough gap after clamping
+            candidate.y = max_y
+            return candidate
+
+        # Small overshoot: prefer expanding the bbox over flipping, so
+        # the label keeps its intended above/below side (preserving
+        # alternation).
+        if overshoot <= margin:
+            sec.bbox_h += overshoot + margin
+            return candidate
+
+        # Clamped position too close to pill - try flipping to above
+        above_y = pill_top - label_offset
+        min_y = sec_top + text_h + margin
+        if above_y >= min_y:
+            flipped = LabelPlacement(
+                station_id=candidate.station_id,
+                text=candidate.text,
+                x=candidate.x,
+                y=above_y,
+                above=True,
+            )
+            if existing is None or not _has_collision(flipped, existing):
+                candidate.y = above_y
+                candidate.above = True
+                return candidate
+
+        # Neither side fits (or flip collides) - expand bbox downward
+        expand = overshoot + margin
+        sec.bbox_h += expand
+        return candidate
+
+
+def _compute_safe_offsets(
+    sorted_stations: list[Station],
+    label_offset: float,
+    station_offsets: dict[tuple[str, str], float] | None,
+    graph: MetroGraph,
+) -> dict[str, tuple[float, float]]:
+    """Compute per-station safe label offsets (above, below).
+
+    For vertically stacked stations at the same X, the label offset is
+    reduced so a label stays closer to its own pill than to the
+    neighboring pill.  We use 40% of the available gap (instead of 50%)
+    so the label is visibly biased toward its own station.
+
+    Returns a dict mapping station_id -> (safe_above, safe_below).
+    """
+    # Group stations by (section_id, rounded X) to find vertical neighbors.
+    col_groups: dict[tuple[str | None, float], list[Station]] = {}
+    for s in sorted_stations:
+        key = (s.section_id, round(s.x, 1))
+        col_groups.setdefault(key, []).append(s)
+
+    result: dict[str, tuple[float, float]] = {}
+
+    for _key, group in col_groups.items():
+        if len(group) < 2:
+            for s in group:
+                result[s.id] = (label_offset, label_offset)
+            continue
+
+        group.sort(key=lambda s: s.y)
+
+        for idx, s in enumerate(group):
+            if station_offsets:
+                offs = [
+                    station_offsets.get((s.id, lid), 0.0)
+                    for lid in graph.station_lines(s.id)
+                ]
+                s_min = min(offs) if offs else 0.0
+                s_max = max(offs) if offs else 0.0
+            else:
+                s_min = s_max = 0.0
+
+            text_h = _label_text_height(s.label)
+            safe_above = label_offset
+            safe_below = label_offset
+
+            # Check neighbor above
+            if idx > 0:
+                nb = group[idx - 1]
+                if station_offsets:
+                    nb_offs = [
+                        station_offsets.get((nb.id, lid), 0.0)
+                        for lid in graph.station_lines(nb.id)
+                    ]
+                    nb_max = max(nb_offs) if nb_offs else 0.0
+                else:
+                    nb_max = 0.0
+                pill_gap = (s.y + s_min) - (nb.y + nb_max)
+                if pill_gap > 0:
+                    safe_above = min(label_offset, (pill_gap - text_h) * 0.4)
+                    safe_above = max(safe_above, 2.0)  # floor
+
+            # Check neighbor below
+            if idx < len(group) - 1:
+                nb = group[idx + 1]
+                if station_offsets:
+                    nb_offs = [
+                        station_offsets.get((nb.id, lid), 0.0)
+                        for lid in graph.station_lines(nb.id)
+                    ]
+                    nb_min = min(nb_offs) if nb_offs else 0.0
+                else:
+                    nb_min = 0.0
+                pill_gap = (nb.y + nb_min) - (s.y + s_max)
+                if pill_gap > 0:
+                    safe_below = min(label_offset, (pill_gap - text_h) * 0.4)
+                    safe_below = max(safe_below, 2.0)  # floor
+
+            result[s.id] = (safe_above, safe_below)
+
+    return result
+
+
+def _try_place(
+    station: Station,
+    label_offset: float,
+    above: bool,
+    min_off: float = 0.0,
+    max_off: float = 0.0,
+    text: str | None = None,
+) -> LabelPlacement:
+    """Create a label placement above or below a station.
+
+    Offsets are measured from the pill edge: above labels use min_off
+    (top of the pill) and below labels use max_off (bottom of the pill).
+
+    Above labels include DESCENDER_CLEARANCE so that letter descenders
+    (g, p, y ...) don't visually touch the pill.  The SVG renderer
+    uses ``dominant-baseline: auto`` which places the alphabetic
+    baseline at label.y -- descenders extend below that point.
+
+    ``text`` overrides the station's own label, so a caller re-placing a
+    re-flowed label sizes the trial box by the text it will actually draw.
+    """
+    body = station.label if text is None else text
+    if above:
+        return LabelPlacement(
+            station_id=station.id,
+            text=body,
+            x=station.x,
+            y=station.y + min_off - label_offset - DESCENDER_CLEARANCE,
+            above=True,
+        )
+    else:
+        return LabelPlacement(
+            station_id=station.id,
+            text=body,
+            x=station.x,
+            y=station.y + max_off + label_offset,
+            above=False,
+        )
+
+
+def _has_collision(
+    candidate: LabelPlacement,
+    existing: list[LabelPlacement],
+) -> bool:
+    """Check if a candidate label collides with any existing placement."""
+    for placed in existing:
+        if _placements_overlap(candidate, placed):
+            return True
+    return False

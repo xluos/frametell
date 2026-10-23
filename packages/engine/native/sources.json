@@ -1,0 +1,2528 @@
+{
+  "upstreams": {
+    "manim-web": {
+      "url": "https://github.com/maloyan/manim-web",
+      "version": "0.39.4",
+      "distribution": "https://registry.npmjs.org/manim-web/-/manim-web-0.39.4.tgz",
+      "integrity": "sha512-DAmO5AQ0ISNiOgU4tHE01jTjmAyiNLy21/iVcXWpvI9YeEYOgCfOikdtFdcggASzRI2fVr51+Iq6UYmb2OyRXA==",
+      "license": "MIT",
+      "created": "2026-01-29"
+    },
+    "doodle-anim": {
+      "url": "https://github.com/feitangyuan/doodle-anim",
+      "revision": "bfc4c257151450c03f13013dec5585ebb935aeb4",
+      "license": "MIT",
+      "created": "2026-08-29"
+    },
+    "chat-rap-video": {
+      "url": "https://github.com/weibo-job/chat-rap-video",
+      "revision": "546d0ea7bbe14ee5ca58620255a8363d95246fdf",
+      "license": "MIT",
+      "created": "2026-08-13"
+    },
+    "nf-metro": {
+      "url": "https://github.com/seqeralabs/nf-metro",
+      "version": "2.1.0",
+      "distribution": "https://pypi.org/project/nf-metro/2.1.0/",
+      "license": "MIT",
+      "created": "2026-02-15"
+    },
+    "lemo-opuscar": {
+      "url": "https://github.com/lemomo-ai/lemo-opuscar",
+      "revision": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "license": "MIT"
+    },
+    "huashu-art-motion": {
+      "url": "https://github.com/alchaincyf/huashu-art-motion",
+      "revision": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "license": "MIT"
+    },
+    "anatomy": {
+      "url": "https://github.com/wheresryan22/anatomy",
+      "revision": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+      "license": "MIT"
+    },
+    "colorfigures": {
+      "url": "https://april-zhu.com/colorfigures/colorfigures.zip",
+      "retrieved": "2026-10-22",
+      "license": "MIT",
+      "coreSha256": "a78aab94ab7396b99080bf72673d5d4d689d771764d76cb08f1a0d28033f7fc3"
+    }
+  },
+  "files": [
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "LICENSE",
+      "sha": "5ba3cce5467fd31494d7e117662de08f477e372a",
+      "sha256": "14c9ff6f14bfb2391e74fedb01c256891d2a3bba1c2acf5789901bdf77e54e33"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "core/lib.js",
+      "sha": "e6e9c9eb369b2f7d79893e3b8372f43560e80d53",
+      "sha256": "770c8fde7c43e6a8aa9f69235869eb2a6ef5dc43453d0e56d4ff0da576c83907"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/DEMO.md",
+      "sha": "cb42233205e05d6930d2aedaac50f90500302f67",
+      "sha256": "5ea1681271e44d4d4fe88fd5d7ef907c320b0979cf53dfb93070ab6d0edb61b4"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/STYLE.md",
+      "sha": "08c33019ee14b8ecff9254c29b32a0a4c15ec1fe",
+      "sha256": "de01fc7fcb38b17b58eb017c9cdbcb36b9242b029435a33587614c93088e1717"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/demo/draw.js",
+      "sha": "c79662dd4cad562606c9de2236b5c13f70c500fb",
+      "sha256": "ba87edc2864d1dfcb32e7798c716e8189fd43ff57926b1309d5f9e2befe0a846"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/demo/machine.js",
+      "sha": "4b41e05d71358b9c01bd035904020c8b96bbef56",
+      "sha256": "25f9e1ded15ed79c01d7c6392615f7eff14a8f4c70cd83207ce386568bf636fd"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/demo/paper.js",
+      "sha": "a6842c565b5e8685e0caec515ab2c821cd26ac95",
+      "sha256": "acb079c0036fa2b7e47e80843bcf422718cde2edd7b5957a5b9b6a7c252f222c"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/demo/sheet.js",
+      "sha": "b4236863564bfb5d6b38484106db1278161b2ba9",
+      "sha256": "5dd3c2616071271b562094eae062cd5f646e3cec337f0de5117880f79d42c819"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/DEMO.md",
+      "sha": "7244db1bc11e73bec62dd957a2aa1f1477071088",
+      "sha256": "4c5bb8aa6139e91f5317abb7bfbeee679b54b8e54fd8f38eace83ea5ac7a05d0"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/STYLE.md",
+      "sha": "d17e37cdedc5b62a03537066631987cc558e931b",
+      "sha256": "ba558478fe519fa6777fe28fa7d1980117297c7beb6fe2e366ef6f00688aa175"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/chars.js",
+      "sha": "883a8c3cdcc5d2becbdae5b685cfd0b847b0377b",
+      "sha256": "ab262e5e172bc29e1b597bdc8fa2ad8cb1bb81e9ecf5f3a8bb744169fe62bc1d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/crayon.js",
+      "sha": "73e241bad7406cbdf9b37a4b6f3b0588752bfe7a",
+      "sha256": "a756b3f06a6f850785b888e3871170a5c50877bc881816a4209126d6978d5f00"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/end.js",
+      "sha": "c0bcd9745623db3733f47086aaa2737775893809",
+      "sha256": "5ba7e7040477b5a22b83e256d2420b3a4ef5917ba787aea7f763a7732bf4a66a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/gl.js",
+      "sha": "a04c87cd5df1b1bb801482671c98135f7b7ad05c",
+      "sha256": "4ae0f6e2f72dad3554b856b59441d441683328e9711f83b4162c534758f95b0d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/pal.js",
+      "sha": "3f2c2c945e39b85fbcad47c50d5be0738c4c7aea",
+      "sha256": "436fb5fdaf6eb52dd6293419975da48e681fccec7ba3c354ec647e7252446eb4"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/rig.js",
+      "sha": "a3c79bfd2ae18f6807938a565b7b12a4a65a90dc",
+      "sha256": "24bdb3768c5babbef1841fb9e4ccc43379ea6d0329f04336d1e85579a14a14e9"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/sheet.js",
+      "sha": "fb4526a0e70e094329f3b53dafb3aca1012a1f81",
+      "sha256": "da49f7421e077c2ee9e2ae18ed61324992a57851537142aa35370e042d51194f"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/world.js",
+      "sha": "2a42c51195b20cbbe036ef355b919f6dd7e83d0c",
+      "sha256": "a3875747339f222c5595f63efa87d0fdc3098d631b9e9f72249ef293d991b5b1"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/DEMO.md",
+      "sha": "5236ec6ff1f34486b594c9fe1dba2501abe06786",
+      "sha256": "9e99a45fe8d3694c708ce0982407cd3c6b0628a7fc83e093c3b858e77ab5b37d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/STYLE.md",
+      "sha": "b9529171436dfb98516756181b83aaf1afe29f1b",
+      "sha256": "0c6816b8b47163d158ae0ea668feecf53dcbef9d1310e27b9e797d9b9e7aac0d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/engine/burin.js",
+      "sha": "c5797928b363c66fc93b9776a1c6c6267e0c6569",
+      "sha256": "0c96d24e39b5ed275816fbaa8de993bc9a2a658d067e680728171150e5352242"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/engine/copper.js",
+      "sha": "37b46a80c074aaf1f015a58dcd5464d65186c2ff",
+      "sha256": "e7771b4ceb045df0c6ccecf9fc8c40974ebbf8ce2a9281a28b9dc554b147585d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/engine/index.js",
+      "sha": "f6ddb640c921bcf016c9f346712302a6b8650bde",
+      "sha256": "127d4c84b3190a6a1a91d441601176d1037ffe159674b5b4a1a101d6a8b4e66d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/engine/plate.js",
+      "sha": "51c322fec2fb3f4908ad7391bc0877fd59128ea8",
+      "sha256": "279b7547dd6cac5edaeb2f93b02c03ec2ae05da38d7df79f6cacdb832b51511b"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/engine/wash.js",
+      "sha": "b4e7d4056c6e8ccffdfc640719f330f0da3e9972",
+      "sha256": "04893b86658947fb0312cd46df7f7863c214d05c3cf99ef7dcf3e473736a1001"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/subjects/bee.js",
+      "sha": "288d966eb7112b1f86fb52169f31d5e1ec9883c0",
+      "sha256": "42995d407d3c1c5fd9c23754bae11a5f01a3604bd80eb2e1290f64ba18dd6bcf"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/subjects/details.js",
+      "sha": "64f6404b3e9a16dd47da3d7b9d7d13e4c846411b",
+      "sha256": "aad1b78da841975eba844acb770255a9a27bb6c99c27df5e34a4a843c9b0abd5"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/subjects/scallop.js",
+      "sha": "ea8d3ba6ff23a53d19df97d571536be5981afe04",
+      "sha256": "6f10cca9b5386ecfdc80e7c0f7ebbcedc0c823964a5203d4d4111353cc2414e5"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/DEMO.md",
+      "sha": "8fae86046c467540736ee1dd2e70650a664671eb",
+      "sha256": "414fb4c7957ff033f1155e60174d1c5650b04683c3ab3fcebaa6f76e571b5c58"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/STYLE.md",
+      "sha": "abeb6982aa4e600da62370d45c94848cc28c4ae8",
+      "sha256": "91e75f666a6ab5122ead52aa5c47a603f83d0578bab0b9aa223cf83b639fbb16"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/clawd.js",
+      "sha": "6cb4dbc93e1b10451f262f2ca8e773d3e9fcb5d6",
+      "sha256": "d3770de982269dce21803a00aea9b081a302021dcc8f32ae749d5eaf8370084a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/ui.js",
+      "sha": "80786a610b470ac4d26f03b8021510cb7b1412a4",
+      "sha256": "a4094be513f0247045a930b3be3334aee95676a3314b6c5d9f1dfb19465f8fb0"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/DEMO.md",
+      "sha": "66293295dbba0f159bc386cba1e815a2b2a81df2",
+      "sha256": "9850c050667cc9c7af84c549db64b6f5333e657d87474bcf6d6d5dc74bdde17d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/STYLE.md",
+      "sha": "22ca95355affd767f0e9c49b0dae5aa0110136c7",
+      "sha256": "e73614b6f9e2f2e8ee279f4909da8429235b96f6d13a12345b6e57d5823c30b8"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/engine/chars.js",
+      "sha": "3fd8e1840195066ef70efc7a43ed2ccc6559d805",
+      "sha256": "ba0cc26c92935caaa5a64556e424e7ed5f0cdad616f644de276b365ed4c97d1a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/engine/icons.js",
+      "sha": "86f2529a4c713c20e8a5b86e9897e8e656fc4279",
+      "sha256": "812ea35cc2e5c8dcedf9aafb618c0aee13938c353eb6f904f93b285b4ffd74da"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/engine/toon.js",
+      "sha": "b1881c6de8a648e5404b779444f6795ba923a5fe",
+      "sha256": "261c79fa7aff5489a98d9e44f91659eae10e90d3bcb13a6e23e84098b709b0bf"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/sheet.js",
+      "sha": "cdccd4b525913650992d4e9e4aba5cf25763e063",
+      "sha256": "a76ac17ada11d4aa0ec8195dd86758a43e69331c54357266d13d6fafce21fc6c"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/DEMO.md",
+      "sha": "6fb99e67c6f5ea10cc25d3421d5483af02574f46",
+      "sha256": "eb86f839b5a726434acfadc12e589419e8ee9d9c1961ccacd772d8e04bc974ae"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/STYLE.md",
+      "sha": "e5731a7f84b07772860db04c3359aefde9642d67",
+      "sha256": "69d26cb06f48ab6b03c12a76c2390d0945cdaddc38bc109b7d5e292b9af1399b"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/cam.js",
+      "sha": "f05d9e36944e56b210358b0bbd3bbbfaa7fb5d3e",
+      "sha256": "ae15d60fae21ea0ccc7ba875d6c10d5d66af515daedc5601d58be8068779fdbf"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/face.js",
+      "sha": "906d6765bfe55bb9b184e542fa8714ad070c611e",
+      "sha256": "959b9d512b9d68b28d8a20bfe1db9579c3fb249b55d28d0d38caf35e907b7af1"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/geom.js",
+      "sha": "ff99fab264f7d2adbfc3844fb9d73d33eb25f27e",
+      "sha256": "2ce3a4d03ac83f099d6bae0b579d7dc65153f3dbabf1e098b7e6f3fb0dae9ab2"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/hands.js",
+      "sha": "74d4e60df69a7457b9e0f2d62219c04a45a4f15b",
+      "sha256": "f18c60e5913368733e93d306699936ed96879b625228355e89ad7f376e82c080"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/ink.js",
+      "sha": "f91dacc18cbb37331a2aa75edf032224217ba739",
+      "sha256": "98ebd25fb1f45a209876511349552435dd4cf5b22aae30124b5e5851f73d1743"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/paper.js",
+      "sha": "56136d555e96748e87246c6c2fabe8428a76d9b2",
+      "sha256": "d9a218459f779643d6c75964a89256635799ed005706816190e15449bb600254"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/shots.js",
+      "sha": "a55bc33942e7628e5928b58e7b694ae1c5cb60b2",
+      "sha256": "9c5c59ff8fc5364ac5822abcd338b481d1f1a69b9082843905cfcbfe7a15f79d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/story.js",
+      "sha": "44d2754729a4e68c9e03d735e680e22f26a024ea",
+      "sha256": "7d9fa58bef46a7c99b9e393efb6ad0e2f2780b96ab1b7aa0b65ef40543bda07b"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/one-line/demo/subs.js",
+      "sha": "3261aa3568364b0e2bf6b8b7cd0cf73badffbf10",
+      "sha256": "12717699b8806f1940c3183f6c3fc26efddb5153b5f56416a338bceabadb000d"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/DEMO.md",
+      "sha": "32fc076a47a88305ff00d3232325634f4cb3456b",
+      "sha256": "7c02f4932210e297ae8994c2d654021eac95c2636f4d92e73a5d0c91b6df35d3"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/STYLE.md",
+      "sha": "a8688359bf18c820a1df37e70df65c60092fb24f",
+      "sha256": "e982606f3d7d132d320abdc1a74c226b1e0642b664a0c41582bc76fec646da1a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/edl.js",
+      "sha": "367abf750ab5c898d2fcf0d134cb54fddff78e2a",
+      "sha256": "edcad84e5d02b4b4ee503dc51622ada2d8416e28cb0899145164b612a6bccb11"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/engine.js",
+      "sha": "41720e854601063b2f516772f83cef1771286de3",
+      "sha256": "4bba5151769a6e68aaef6dc7615b9d8dcebec4d4c5deacec11ee073675116f0a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/aqua.js",
+      "sha": "d753222184f7fe2ec48516e2bc1e1ca9fd6bade7",
+      "sha256": "521d015661497a12764ac9746fd7ffdc7136ee4007d3c4e1ebe2d6daaaea7fab"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/asia.js",
+      "sha": "a383d973b0679ebdb4f9b926bcb6ba241dc78848",
+      "sha256": "e8b626ad418a79b7298d8e625617eb9c93436c8651f6bb614ab9b5711e7526fb"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/ath.js",
+      "sha": "94029f51bc0bb5f5be7ea0a63bb9219284362e4a",
+      "sha256": "388300e2ce218eeb4f691d3f5bab7bfd386b833d4d53d1b115da46340f19990a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/ball.js",
+      "sha": "7fe337e2ccfecc98954df06a6c7e7b30ecccb19f",
+      "sha256": "a1ed0abff49d4f68c072a28ae2329636be063c6cc2efa8993615e63da6a79758"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/base.js",
+      "sha": "08a3c4ca626d8f1e8eb0a2ae1fe90dc1a910c2f0",
+      "sha256": "b7cb25ab517682306d5387715c3ab2f129e9bbb7d0daa0222a81ec89963a7ae9"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/combat.js",
+      "sha": "718ec035505a471dc92261c3bd09c1c7b20f0873",
+      "sha256": "92e32cee0e5e65d3843022a557e192476b34cb5b6f48e80db3aa082d429e416c"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/nature.js",
+      "sha": "9624dfcf34c868c13be529d4985e4d112a52033a",
+      "sha256": "547d18cb4224e47207dfd3bd08d93b76e82fcaada7cc3145e99a5495767ffcad"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/pictogram-motion/demo/poses/power.js",
+      "sha": "63ce3c73460e5cc2220ca082d0c001ab7d472321",
+      "sha256": "f22923a9041abde0df3abfba243662b7b0684048241e8b4f52c71543aafa8b64"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/watercolor/DEMO.md",
+      "sha": "91cf08c16eba28ef5e3fc8de1342acbd1f01a4cf",
+      "sha256": "04d0805e950fa5779cfea722cb5a8cc15e6f79ff2326c3c8ef5ac4c23bacbc86"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/watercolor/STYLE.md",
+      "sha": "26068ee10232bde36f40f2b49c1b9ea96ee010fb",
+      "sha256": "662d57568408a7c82ef8f64980ca85798b8bb239df3dc3a6715283d7f4555ef0"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/watercolor/demo/aus.js",
+      "sha": "9da8e62829c2ec92cd7d566437d9e7213fb15bd4",
+      "sha256": "7ffe7e04f47e703e19720a471eeca314a1875be2d16c23a8c51a6625d261012f"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/watercolor/demo/engine.js",
+      "sha": "347b49caddc21829f0fd21beae841034036e522c",
+      "sha256": "32ee3ae212d8f3196142f9423e795c16b09c98234fd9b6b50c852417415e3333"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/watercolor/demo/plants.js",
+      "sha": "58e0e52e860c08fb25dc5c70647dc429f64ac272",
+      "sha256": "1c65b5df4462837b6b94493a5b84dca51b033a8e342eb758e71e4a03d624b39f"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "LICENSE",
+      "sha": "ed67368a2a79ed7be97b2a4852330cdac5b8b12a",
+      "sha256": "6d6a2a9caf2e6d2b76974050427053b2892d8aa4c33fd168ce63a537fcee9d96"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/brush.js",
+      "sha": "1b993a940952b843cbe7c72ec3ee2e34c3c993e8",
+      "sha256": "e83db04e5fc9fef83237d984d2ceba3c1ec71c0c2a8f8a798ecc939fc8c3b2d4"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/camera.js",
+      "sha": "7b50c44db598733264c1b7ecd542d7f896d93b47",
+      "sha256": "53ddc95e972900abfb49bfea704a2b77897b9237836ee653aeed966d39ceeec5"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/chart.js",
+      "sha": "e18de00ae35ab951117f9547e6b946d4094ee216",
+      "sha256": "93d3605cba7d7cf0bdda2c2dd8f9797734dd06c1f64fa18ef7a492f8755a8d27"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/collage.js",
+      "sha": "f3491e46ac4040ea4951a6215df7ef61e406514a",
+      "sha256": "4dcd3d15f8895dc6e3d4f2e4d82766782a4e77876fb863ded9480320b8959d93"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/diagram.js",
+      "sha": "8baf28f1c084426a886bcffb98225eb13a70d583",
+      "sha256": "98b15ba5f883dd95eca2ff52ba1d768c10a5bea7862bd13aee6d84b875e2b8c5"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/medium.js",
+      "sha": "4b681f5c9382103180f13d428d448855897e9265",
+      "sha256": "da280d244f0d603236976767a8cfdc4a8d9c56c299fbd1eeb48cc3014c656984"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/motion.js",
+      "sha": "6ee9cfa1f9ae84be9f812539f9badec574ec0857",
+      "sha256": "22762a3691464b7504da562b3761edc70f7c138721618639697df3a5a93c1b97"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/paint.js",
+      "sha": "6fc5bedd62c6497755ccd3c7d05fd5f61c2b4828",
+      "sha256": "95ccd1945a4a19b6e2d89a422d7ea7de96174acdbae1801090ca9ee48131f9a3"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/palettes.js",
+      "sha": "172b2a2d9d3c52cb774603d88813189c2f66a1e2",
+      "sha256": "934acc426ebdada51f613d6e7b1cb693590d615a01d7a66d5461483bf79ff30a"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/render.js",
+      "sha": "ae98ce074111733cac6af073f13312c31b70527d",
+      "sha256": "d2855f044ddff579000d9f8b1abadc2b76f84875fc604bea79d10319e3fe92bf"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/rig.js",
+      "sha": "01db1550076afef96981f89009534c801213c0f2",
+      "sha256": "62580706e14438c6b57289ce203d040c91d8a427e356f44084a65dfc53a13bbf"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/rig_huashu.js",
+      "sha": "1beff1622066c92195d372bee5f244c9c71121cf",
+      "sha256": "6419306bb314f89848b0adf842db0c305c2f6bc931df34388eb5389f29c1d392"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/toon.js",
+      "sha": "b0eae6595c3382a3afb95b35b56fa83c3118a9aa",
+      "sha256": "54778963a97767742257e5b68890e5b292f2b89ce3fd1a1f9711224573988d8b"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/typo.js",
+      "sha": "f00d3675480fe0ba302bfdfe1c1894025103abe4",
+      "sha256": "bfb53350a94bc77c20a5420b694b0ffb7ba913c4a2e3390d86b99cf3fa8c3976"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/util.js",
+      "sha": "0b3db4299e12072d033b3e6418e9bdf309c2564f",
+      "sha256": "a2092233bbca337a29b00ce261d81a5c7b6baa020c9e301916ebe4a997450b9d"
+    },
+    {
+      "project": "huashu-art-motion",
+      "repo": "alchaincyf/huashu-art-motion",
+      "ref": "8a0d7d72ca65fcce6f8ba82c4a6c8dfe35b8422c",
+      "path": "scripts/engine/lib/kit.js",
+      "sha": "e0790d7eeafd1627794d562e81f8ded1dbddf8ef",
+      "sha256": "a066c4d0d4dc7189dd9de7776938b4cbc6025a4bf4a38d2e181a6667744f3024"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/demo/fonts/fonts.css",
+      "sha": "093d03fd17f5639199bfeec812d3bb3ca7ecd9c6",
+      "sha256": "ea7079bdc69ef0b17c62b59663f0085e9a864421a3b8d7e7baee07120547f117"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/fonts.css",
+      "sha": "410124d39e5742f89e44182da8b74c17ed99d175",
+      "sha256": "72614b5a1b43862e2d688fd9601c9f438906c8a4e32c0818bce2b61119978a3f"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/fonts/fonts.css",
+      "sha": "e11e8fdb5c7259aa8a70258066dcab3af932c4cf",
+      "sha256": "069583a9ccbfc267cc74298d4077af8a882c5ef6f87c1b15524032e71d1660b8"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/index.html",
+      "sha": "5fe8e04421c80fd73b9701bb741215e12ae117d1",
+      "sha256": "e7af335609a40bafd207de1f7b8a42ff8257991ad9f2defa8bc85e98c4ae830a"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/main.js",
+      "sha": "09ebd18e09dbd6e965e2da99e8a89a37cc2521a3",
+      "sha256": "54e39c63367d672fc34f12e8052e2aaa27c26bf7b2d411063b677052e167b88e"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/fonts/fonts.css",
+      "sha": "8406532cf38fadb141f3227fd419db22f93a93b3",
+      "sha256": "d45eb37574c02ff89b8d88b4218095273518fd978bcf9e171bad89981d24a8bb"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/blueprint/demo/fonts/OFL.txt",
+      "sha": "06117d9dfe08e8ac9818115cc1898c05a197c27f",
+      "sha256": "0e441ae9f18ad0c294cc5b6ae3974c2db1614cab220598578b1b58c4cc334485"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/caveatbrush_OFL.txt",
+      "sha": "25cc0c2166fd4be442306589cc479aa4c027e9a1",
+      "sha256": "21b54eb0d7513524798a00dfbaf99a02c003a0012a728cc5f0e02d24c50482fb"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/gaegu_OFL.txt",
+      "sha": "3e3dfe707de45f6bbf5f729cb135399c6bc6b66f",
+      "sha256": "53a9ce47085d9fef613c7ecb3730dc80d25962510bbea231b89564f58240f251"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/gochihand_OFL.txt",
+      "sha": "9d0c550716cb26256270fa2d1774a6e004882d4c",
+      "sha256": "b36cb03d6ddc163452d9935ce6f325741434272d3889acf42cc23584f31a85bf"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/patrickhand_OFL.txt",
+      "sha": "4d5f9447f48357b6a4ac294604954b274059d119",
+      "sha256": "377f4f9c19e935228552478eb68cc2ed82910988a60ba60e2ac73b09f32d02d1"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/shortstack_OFL.txt",
+      "sha": "ff5969466d1a1f53519fc230ee01d1ce0c815f37",
+      "sha256": "fe079cdbbad0f6520eb0a8235bce65b21596dd0c4c5a2694b3325cc87313b618"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/crayon-book/demo/fonts/sniglet_OFL.txt",
+      "sha": "5fff6e6395dc12af00c43a01840a367a6c86feb7",
+      "sha256": "89418a3c7b5726c3f8828a7b7c3f1cad661cf5b7a1be3d2bd9ea243f8d9890c8"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/engraving/demo/fonts/OFL.txt",
+      "sha": "75bbb4792e1403280ce87cbcd7de0c7ea6ceccf2",
+      "sha256": "61d07cb0eaa943943648df2b11d0c2210e772053c192871e13f680b53fe0b77e"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/fonts/OFL-inter.txt",
+      "sha": "21f6aff961064c2e429f570995e446bcdd555422",
+      "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/fonts/OFL-jetbrainsmono.txt",
+      "sha": "5ceee0025da23d2cd5fd14b28569708a8db4db2b",
+      "sha256": "a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/living-screencast/demo/fonts/newsreader_OFL.txt",
+      "sha": "d2d4f407109e9c74b8ab502fc79b912408ab8e41",
+      "sha256": "fdfad38143ec470553cae82a1e45320bdd1b9ec70415d37bd0171051d8a4ded8"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/fonts/OFL-alfaslabone.txt",
+      "sha": "211557706419756d1f526285f044e27a39f9466f",
+      "sha256": "e315abc82a78710c7242e2f2e6529651fd631d4d50e6ad98ea194f9b54c3d701"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/fonts/OFL-jost.txt",
+      "sha": "85b6b99d12470b54d8cbc919bc45102d99f23437",
+      "sha256": "1af3438a4d5f0ed2bdbc5751a5a67ebf6d537334161184b7fbb68503ef0ea0c5"
+    },
+    {
+      "project": "lemo-opuscar",
+      "repo": "lemomo-ai/lemo-opuscar",
+      "ref": "b5e8ef93930b6d828f352055a689320f138237b1",
+      "path": "styles/midcentury-toon/demo/fonts/OFL-oleoscript.txt",
+      "sha": "7aa3e240b2a3b0dc3881046c2776cedd083a7127",
+      "sha256": "8fbe530adcbe30c658393c3f2b5a4785d6765afcefdfe47f594730131f3a0abd"
+    },
+    {
+      "project": "anatomy",
+      "repo": "wheresryan22/anatomy",
+      "ref": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+      "path": "iso-kit.mjs",
+      "sourcePath": "kit/iso-kit.mjs",
+      "sha": "248ee01cc00dfaeee9d693f49f63e32913f03115",
+      "sha256": "6d3ecc725d30c3b0346da309cf61dfa5a65017c23620bbd4093009d4fb104018"
+    },
+    {
+      "project": "anatomy",
+      "repo": "wheresryan22/anatomy",
+      "ref": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+      "path": "LICENSE",
+      "sourcePath": "LICENSE",
+      "sha": "aa20733917ffc919b6b04834e6a6e22909df7c76",
+      "sha256": "87c078ab9d90a3044f359e6b563d4e6afea7aa060897cf4f21618687b3856796"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "LICENSE",
+      "sha": "48a2e837dd198109f4dd88dc93368e1baea38cb6",
+      "sha256": "30f750065d412f9ded2a1b970f53e2c2103944b51ba11e4744aeac29590983b9"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/BokehPass-D-qNlcw3.js",
+      "sha": "9fb412d3109a62d49773ebd107613ffea95812be",
+      "sha256": "a0e7234149052ba18c01bb9caf5debb6d3ea92c975b31e287ee1e49eb6fa0bf3"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/BokehPass-VGXcdQ8k.js",
+      "sha": "082ae68f1186adba7d1f30c262ba4fcf7764a73b",
+      "sha256": "4cc437a2c531c4dd281ee0b251c2ba0da9b8bf6ebe12e956e2c97ce46b2de9ea"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/CopyShader-C2Oc7n1P.js",
+      "sha": "d9cd657e99822ae6512ced1f300cbfaa044b5258",
+      "sha256": "c816ae5508a8e9c9f17ba5e54445899118a030145e6a89a7671c1af7d974b0ab"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/EffectComposer-C96AmHlD.js",
+      "sha": "c900e0ba38c72fb515ce18582466843a2d073eff",
+      "sha256": "2e9d84d2f2fc101870086c419f5b84da82188b89d60ddb8039265f90f2e8b890"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/EffectComposer-D427QFuS.js",
+      "sha": "94a4d4bc93dcfb36182965bc133650581d951d04",
+      "sha256": "7ab95de4248841a132091bd17ca425c9f358d9acf5609c5b766d184c1e779e39"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/FontLoader-BGYs-WAa.js",
+      "sha": "7d77972cbf6c6237844e3dcc8a5a7b353d16f824",
+      "sha256": "75e3c27bdd3f1ee2bc69b18daff1f213cc66bff8984f0a18e36f8ac97205d567"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/FontLoader-ws7iQgNM.js",
+      "sha": "a29e8f88e5849ef465bd0a6adc2999ef83627786",
+      "sha256": "bad19f21419727d19809e96a194f85810a0a5f7ff11c26367cefb98b27c821eb"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/GLTFLoader-BFyda7wo.js",
+      "sha": "51d7e990b993b6532253e833f2f9c9c6936c6888",
+      "sha256": "3c355728bc60f4f142c19a146a2d7027835ff990593e51e7ea445dadd7a9fbe6"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/GLTFLoader-CuA2O-iC.js",
+      "sha": "f1b1e4126f01c9aadfca7f5170d317d6bb17f47f",
+      "sha256": "fe48a38bad7073cca6247c45de3180674ddaf9cbf62854362e637ccb51942432"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/MTLLoader-DuEB1HDd.js",
+      "sha": "77cd9066f24cde0a415d5d970e4f36f718def5c4",
+      "sha256": "06ed06b47147fe53cde83f8d204b850f85cb771fde8ad7a6ec04229c0672ea93"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/MTLLoader-sW3V-MRg.js",
+      "sha": "209b6ae2d7b461a99b8007356600c444b757024f",
+      "sha256": "be45d3923ea08b315959e4ecea61be67d0e7c7eba53e964fff6baf5045c874b4"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/MathJaxBundle-DRYv6mR0.js",
+      "sha": "49ef51416797a73ed002d2c8dd5a142162b0354d",
+      "sha256": "c95a34e90bb190d0a0a87e0369cbbfcf0747880012b06d6663961fa98bdcf35f"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/OBJLoader-DPoe--19.js",
+      "sha": "28c1afc4adf643195514d6596df5c8e0dedf140e",
+      "sha256": "1261226d78e99a85246917247655df94b7e966522ada382d8552431dfeaafdd0"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/OBJLoader-dyO-WG2o.js",
+      "sha": "806c0b4dfe207149737c4dbb18d89fd2a084b491",
+      "sha256": "646205c14cf8bdb278409324804f7ca2851a7a7fdd9df4c7a708316c6f22f7c2"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/OutputPass-BxQHJaqd.js",
+      "sha": "b1cff965b2a0ae8a93b86979bb29a653374d3012",
+      "sha256": "702b0df3e7f6d851720715ba2923f38ee34955c26b241820f20d3f92f763ff71"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/OutputPass-oQu4Xmeb.js",
+      "sha": "23990cf07182a0f6f97b062b804a21273821521d",
+      "sha256": "aee2ed0749f8ad5c1af0b47152a3a757c99c2e365f5558a5ad9d27710a1f4ec2"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/Pass-BzNVLB2_.js",
+      "sha": "c66f09e56028406e38d236cd696f92f1cb7781e8",
+      "sha256": "aea257d48c6f4a3c585ae77c8fb32d356ff300834a93c26b9882070fc48061e4"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/Pass-CSHIrJrV.js",
+      "sha": "00957d11cb8a41bcf515c831fe18050224d3c431",
+      "sha256": "24b7f1bd0c640b1508803fadbf127a0b2bec8b89c656c84c65c0d797eb9b479d"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/RenderPass-C7zuz_TO.js",
+      "sha": "0754ab7ecc1c8fae8de8a0101375d9b67dd4b0ad",
+      "sha256": "e039810869edbe3660239d235883e252f76e0f5bebddd4337bbc5024f9052709"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/RenderPass-DS8SYAhJ.js",
+      "sha": "ebf2abf85d711f58c306ba65c3eee789d6c87039",
+      "sha256": "c8017b61bc354b2e101f2996db4167f2f68e074b4ceb5700e8f94700035821d5"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/ShaderPass-BjIjpK3k.js",
+      "sha": "35beeaff61612a73431c2cc9edfc1ecb63c895bc",
+      "sha256": "8972c6c39ddf0f2392937734bda2cc228fab98a71bf140c7f0208738f2bf3123"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/ShaderPass-h4P0lBmc.js",
+      "sha": "13681afefe0c9afb726f3c8ade346e8b38e843c7",
+      "sha256": "81cd54ef506f88594a5cc301ebb34851b637285ae1ff587124161216f85e1820"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/TextGeometry---nMmDix.js",
+      "sha": "7b3fdbd360ef59561bf344cf176112b64aac21bc",
+      "sha256": "fc01e981688d4761257428321d3a937ccb595450be30cc6ec41356299afcaba2"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/TextGeometry-Bx2i518T.js",
+      "sha": "f6391938dfb0828a72657ead1abcd33e64ab7b93",
+      "sha256": "b951deba616f78ec6c1206c23091abc8cf9a68e78b7982467cd1331800b03d30"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/UnrealBloomPass-CQSubsmm.js",
+      "sha": "01995fcc32cb2bb0c784e5e8192d83167a6c1d74",
+      "sha256": "98ac6db7bac7d93d673da62ce389ddaffbb03d8c941a6d2c317d704b99ce6282"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/UnrealBloomPass-_oVPORqK.js",
+      "sha": "46e9e81f42cac7d840fe4b5a38c97cdec7e2533d",
+      "sha256": "1bacfa5d5cff0b7d573926608261c76976940d7bc3fea7e74b6000124ea9073c"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/compiler-BU90ciqR.js",
+      "sha": "1571e75d6c5f3c5c755215d3ad1d600d26c95158",
+      "sha256": "15e709c3588c2cb98db0f0ee7358d269ffbc87a99189aa1490d2b0e8f3a92f1d"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/esm-B2OacygB.js",
+      "sha": "5eff2332dfd07c906d70a09fce563ae1f587823f",
+      "sha256": "bd82ccd45ec2cb5f2a54b037cbff9ba6916048cba2c7da44738a35d39bfe4738"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/global-compiler-D_nF-JaV.js",
+      "sha": "a04d697c0cc1fa334bb77f2d2aea82ec2a4310bd",
+      "sha256": "b6e181d6e5cdd6b5f886f45ddd9f15f78e62b01ed8aa2b660490b1c0cba3ab6d"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/global-renderer-gyshX_QF.js",
+      "sha": "439d070d2b90e42f48d287611da070da318f5f53",
+      "sha256": "05d4c75254a87781fa618d7ecfb2248e051e7d23ef7f806a8a71d8f8a80ef90a"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/html2canvas-DXAke8yP.js",
+      "sha": "c0964100e03e7610159de7e8c36fc86479ed3c37",
+      "sha256": "c33d2a701611edf8075dad3ef323467809e2befb7fea46963024ad0f41ae7e0f"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/index.es-CaXVfhiV.js",
+      "sha": "e9d0de4b42a14a705994a71765a25b29d5891b44",
+      "sha256": "0eabbcc6f5c5982b8393d5a70464f0629d88d383ffbc8e43ffdb5d750ec21f13"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/index.js",
+      "sha": "5abdc887f45d8026c7596a5c3420cd50e255111a",
+      "sha256": "94567e6577e542868cf9e25fe2b1cdcd8778645f4f55db481b8646e0e01148b1"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/integrations/notebook.js",
+      "sha": "651f5bf8ea7b8e72e8d55297e0ae90d58842afac",
+      "sha256": "ea9721adf2413d3f20450fedabf5e2ce52787b0a864197583ac4a7f208cd5cc3"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/integrations/react.js",
+      "sha": "41af48c929510c33e1a2a233209f05ac1e3b6519",
+      "sha256": "70660877ee7083a784502cf7843b70b03de62daba51d3ad387ce26d77996b1bd"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/integrations/vue.js",
+      "sha": "0fdc7e20389b40c256c029055593efeaa97d7e51",
+      "sha256": "c6ddbeeafcde8d06312140e15564d714ae3b284d426b8492efcf33970cea4d1c"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/integrations/webcomponent.js",
+      "sha": "cf3f761573541525520cd6805298e4a2da24f6d3",
+      "sha256": "f24952cd58f63ce1cc9fa029549badf202656e6b8aa683e7dece130d64fa5dd4"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/jspdf.es.min-C4lOPINV.js",
+      "sha": "fc66a247f0c1595b68718a4cd14934ef15f4c620",
+      "sha256": "7f3832cb65b10da33ac8b2d2bd9c597235a0af68d06b2b1244764c09af7a046b"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/lib-X4M5ijtR.js",
+      "sha": "7ca56331be3bf908e739d00376e50a30302ff375",
+      "sha256": "bc94b7ef25e31d5621869aa0caf21db28a13e6f2de046d7c3a9aaa1502b4a313"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/lottie-DJigBEch.js",
+      "sha": "ce6ed200d71328f745b8afd1066435a7f8092058",
+      "sha256": "4ccfd14bc67fa668183e446388ec4275fe6b0425b734df93db6391aff7e87d7a"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/manim-web.browser.js",
+      "sha": "3c11efaa1532f47425918f69b5f3a4018a78a99a",
+      "sha256": "6ffc2ca5e3a03160a6e163e63367b99985fbd99b57c3d5b2c5646796e149bf24"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/mp4-muxer--wbcsAXs.js",
+      "sha": "eb10021dc856c1c65aad318af019b6917b618a32",
+      "sha256": "8b3b21bf501103d67698a872faa8d0ac5f823c28bdeb33404920e9a2829e4e69"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/purify.es-C_X9UTsz.js",
+      "sha": "dfedfa185ff9f27f0a98d1776ed383cf3addab9f",
+      "sha256": "ac768d5ba3e78dbb0df4167be23fdd7ec49f1054d5187c4d4d079ee1e793cdab"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/renderer-BvJCCLo7.js",
+      "sha": "3e6123e2bcb0416054d493c671243cc48a06bd35",
+      "sha256": "bd5ac13c028a894a118e62dfb323f9bea0c07ce057c796ba28e6e33c613f9e7b"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/rolldown-runtime-DArdT4gl.js",
+      "sha": "678860851de662a29132bac44babd7a8a18e70c4",
+      "sha256": "c40fd3b6f23c439079e85db4053552a30ff9d7de5a4dc91bef36e6be37ace023"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/src-CwU_xbfS.js",
+      "sha": "7497b642024ceecf02fbb4d0a8ef23d1aeab3885",
+      "sha256": "c8bc09534a2d03bbc1d1320f7d523ccb3650e2f21c72a83a2ed28c83a1d9357a"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/three.core-FQGwh_Lt.js",
+      "sha": "7979417ff1dbd4ca1ceb045c06cfc4d537f629c1",
+      "sha256": "3c4040bf87504c779c96de43b71e406840d642dd5834ee17c72ea180015fc742"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/wasm-D04jJNiT.js",
+      "sha": "1bae5c154b6de2392be9313ad2468cad91d06055",
+      "sha256": "fef7332959ddc1f823dc5e8dc905044ed82473f77ccef7c24fb14ba8f9c1d327"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/wasm-pack-shim-CERydRhl.js",
+      "sha": "63d0497d0b6c2190286f49f85a8431ca0009866d",
+      "sha256": "d294bc236428668d323c61ce5c84d7fd63aa90d7290c0c7ba1f5e85890c89513"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/wasm-pack-shim-Dt3d8uI0.js",
+      "sha": "3a43c5de733d4241b67d74d5dc5ea6d10ba3fe2b",
+      "sha256": "2d1efa6b19918447f0db35b491f3c12c9ca5fa5a4203920e3fde7adb5112840e"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/webcomponent-C5ecbQTL.js",
+      "sha": "5c4d87028d2e1da670183ed0fd7c02f88efb3d2b",
+      "sha256": "674d46b7768c3fa364c2a562355f08d68f4d49d6a69f8f2d41e1fb51e01b82b1"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "dist/webm-muxer-B_iFOGeK.js",
+      "sha": "a24ce59c123b31b084a430cbca8c92ea76b0e837",
+      "sha256": "b4df01085c4741ee2efddf03c2396e7b16777fdb51faf2df27aa818a2f9c904f"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "package.json",
+      "sha": "4772f42fe88e9c0cafda1da40d9f1c6860a6ba94",
+      "sha256": "18d47d854dbe087804619aa4d9024b107a1ab2b1203c66658fe1d0a697df5edb"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "LICENSE",
+      "sha": "d2afadeb2dceca1c4d734601478a0b5f8b006d69",
+      "sha256": "fefdd4c6f9aa65c2068852c3a9b7c23f436026c6eadfe92e59eb2a9f8fd5bef4"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "METADATA",
+      "sha": "e10168b900c9b0401c0d1c5a8d1f223bc28b129b",
+      "sha256": "b41c624300bfd03def71952a871a0ad9209a88a26ce82d8c1c0f6c9ff6d75390"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/__init__.py",
+      "sha": "bd61ef58970453d75911450d5988f740d2ad56a0",
+      "sha256": "a79fbd10d3456e0b301793c03e8776e4d5f2cfc721450a4a380f9bc470aecf73"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/__main__.py",
+      "sha": "bd97ec78af247e8c59b165217f49e0a9e4164d51",
+      "sha256": "e67728470c88f32e898fb67a2596fa68c7fc193246c467e832623f4c02ff1ab8"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/_inter_metrics.py",
+      "sha": "71adcaab771ab7093bb6d708d19b2dfb95bffaf7",
+      "sha256": "ddcb224cb3941a9423996b18c70de21e13d15319af9d2add8b630222c86d9bdd"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/api.py",
+      "sha": "3d8b5440661ca5b3bf7f65f24ce150c108d10b51",
+      "sha256": "14f60bfb5bc85863fe4878888f64ba69ddb28e203f8d6b824deb071498dbb0a3"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/cli.py",
+      "sha": "b84dfb83560f71bf96108ee084812aa4453bc7cd",
+      "sha256": "ebba559411b28ec928b735d0bf05501dcd47c02e74998145ae991e820689b597"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/convert.py",
+      "sha": "42d04d26cc1eb5eea71241b75e88f7617deb84e2",
+      "sha256": "ce97f71a6466eccd718f76e3ea780a07e126fd76ee0ff4259f46efa17b3b6622"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/errors.py",
+      "sha": "631ecbed82b08a9518b77e334835dfc66cdcb85f",
+      "sha256": "473ded3cd95e7e08866fb784cbbb820dcff490e949059b0204d449d590905260"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/explain.py",
+      "sha": "2790e928ea71510c81a219e2a7cde0aef4a31c9d",
+      "sha256": "67c26129947238497ed1daf5b6718f9099ad14c75e8bb34eec74cc82e2427f7f"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/fonts/Inter-Bold.ttf",
+      "sha": "b61b3070f0364db1ffcfe8021e7298d2c0e3d99e",
+      "sha256": "28b60efcb2de61799788ddc12610daeaa4c4c0b9826fd773dbb6a03295b7f64d"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/fonts/Inter-Bold.woff2",
+      "sha": "59f5d895f7117cdadee7e097315a4a2eac3f5f43",
+      "sha256": "a80d85ae8e8928616c8060f9488a18ce1fb3441d9a37ddf0be3346458eae1e91"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/fonts/Inter-Regular.ttf",
+      "sha": "6e84656523ae8f98de21565f2f4e3ea9aa110f64",
+      "sha256": "9c4363feb42faf9d2a4634a60279a79e6edc428be7cc11549879a4dde09c8445"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/fonts/Inter-Regular.woff2",
+      "sha": "4040933c1f2231aacea04f6b6e4a4e5c005084e6",
+      "sha256": "9d661a08bc10d00ba1f886a8faf966b8a74bd66a6003a87590862cfeef41a1b8"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/fonts/LICENSE.txt",
+      "sha": "9b2ca37b3ffc77391d8b2ebef4a974ef32bf46ea",
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/graph_views.py",
+      "sha": "5910d68cae30a161cbc6a2c8d7f740bf6b9d892b",
+      "sha256": "fd3c5156a69d67d8d011ed537ac1c686f99972e1e8b02581782f7a8f12fc4d9a"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/introspect.py",
+      "sha": "0fe70a2056aa3ab9ca8db0550b780506699e3177",
+      "sha256": "f181a976e8ac069d794a927161ff709cb957d0115325227e50cb58780fcbbb48"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/__init__.py",
+      "sha": "c3b42611fe9e39c8039d5dc1d8673e12fb8b1edb",
+      "sha256": "909c3ada0ab4b8fbe14b570723314f3f2939b5a1c7f52889db02c72e12dc9cd5"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/auto_layout.py",
+      "sha": "65d180ee866ed131ed3266ed65402fc8d2545fd9",
+      "sha256": "3ae41c383498f528482ddb8dc49606c4e62f12632c1d738b91fd7d6a3376dd2c"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/constants.py",
+      "sha": "c22f34b4d14be2e70ba38293f598e9430be4d2dd",
+      "sha256": "1cfb865508acd3aa14468ea8581d959274f9117c2908b2c8974325f4796ab3ec"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/engine.py",
+      "sha": "ca7030597073ce16b7b33454e0b299478ff7d4df",
+      "sha256": "0510e0a4fd8f7bac1f48f0b9f6b7f5c32ee1fb9ce1bea1d433846a5c50a34674"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/envelope_settlement.py",
+      "sha": "d7974806e76ccd5357e99e02a8e80d4b2899fc26",
+      "sha256": "57e77e69b374aa354ab02b67699359dd6ec28216a6fbe21d8d63e7e01709efa6"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/fan_geometry.py",
+      "sha": "aa7655003875f71243ae446b2b879ede4e0f2443",
+      "sha256": "1942ec0119abb81d78deafe4c5535f8f94a9f19b8427d8a9fc25b55208954a95"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/fan_ordering.py",
+      "sha": "338b57766f838e4496e2f24718c0d2ac874fede4",
+      "sha256": "06b87feeeb7f81f5ee572ff861243d997998ef367bde806d633a89bd12ad1a3a"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/fan_plans.py",
+      "sha": "df00973f7608cb9898f7077eabf07d22f891f7f0",
+      "sha256": "35f4d39988029b0e19e2322eb04cf0266cd0c72164fbed7ba370853a4f250202"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/geometric_bypass.py",
+      "sha": "c1c824a537b5b3663f8c4f37509f09c7cd7dc931",
+      "sha256": "63fa06bae52ae0a45f4f750aeada3a008ad3384c3ac1911ada20b61a333fbe29"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/geometry.py",
+      "sha": "c34118285ca3dde616578d5af182f1cbcc16d956",
+      "sha256": "e81bb9f51992f413620e0d2762ccb7e75694e2d62d647a3e3aa53b1e2c55510b"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/labels.py",
+      "sha": "f3c2257d3b5e3fb06256e8c304249019e621b1c1",
+      "sha256": "d6522eeb36bd155d6f8ed0136965331c05723fa8d8a96b71c347bcd722eae42c"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/layers.py",
+      "sha": "2ec9f51fc86c52645688acc770fedcce5e421076",
+      "sha256": "d6554a5caaf20e6fbe560c42a207410b5918c4f1c269e91102f44b7f1c6487a2"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/ordering.py",
+      "sha": "ce3687238447c5e61a942cca5981931de8efe47e",
+      "sha256": "4116b4c652063613fe19e1007dcfed7b73803add7025c847154d565d4d23d0c4"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/pass_metrics.py",
+      "sha": "f80fd4db3f7c6c5559af04c775dfeacc30ff39ae",
+      "sha256": "4b145a0a9a6565cfa8d614f5c09155916f2da8a84e9fb7697684e7445f43e947"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phase_state.py",
+      "sha": "942408a31fa167e02a897bf0127a04a2ef5c70b0",
+      "sha256": "6784f92945e6b595b19e83f7299ad2bedc72246109d158c39c4bce5193cb4340"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/__init__.py",
+      "sha": "b671a0105828f02e8f4249c4b4d0fde1bd760737",
+      "sha256": "719dfcc423551823c4bc13dd58cb6d36fda225d3c4f277f44c647c457dc6cd43"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/_common.py",
+      "sha": "351c064416329a11907b856690faaac1e8900379",
+      "sha256": "44ca53e6e93787c90783bf5713b4ad1745a51e38a3944f40aa41a1c625a57266"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/balancing.py",
+      "sha": "32545a17ef819007a14570848288be64e0176e82",
+      "sha256": "8496eddd47108ebaf8785a695e626b2c7dd0d55a19b333c142e95e2045e679a1"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/bbox.py",
+      "sha": "23b4139ecb73c77c86d155d1361ee9958e6c8375",
+      "sha256": "eb765f513125bb0f3e25dfcc581693159614766e2adfd8588ecd931c212e1b03"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/canvas.py",
+      "sha": "1aaf2ffb7c9120812e09db7467a8799bd0d6b381",
+      "sha256": "632a3d248e82843fcb1ae800901f435aefcd2b18c946e3ed50f6df80477b5707"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/fan_bundles.py",
+      "sha": "49a75ee8466700c91e99564938afc5acf43fc310",
+      "sha256": "77b08755981b849d4b245cc66861e6ba36d157cb8fc330240fc2cd0834393ad7"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/grid_snap.py",
+      "sha": "e26d80872fcdc34a2178334ff1072b807057ac35",
+      "sha256": "81d051e5ec2faed228fac32aa37b7fcb5b0df9191f28320bd7fee36a43a0cc43"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/guards.py",
+      "sha": "6f063ab61128b2744c8e4fab25ef6797fce01f69",
+      "sha256": "780705abb20d5455beb3fe20942228277ea880e5a562578389f92b87516d70dd"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/junctions.py",
+      "sha": "e1799960891153efc541aefb6387c11d57bd9fda",
+      "sha256": "cc20905fc1768d4c38657ca6ad23d3260660faa83f629a1eeaf7568f65f56b74"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/off_track.py",
+      "sha": "95a7938c34f652ba41870c34a616733ebd27dfbc",
+      "sha256": "78f9ccd44bca6f83210d1d939c4abd4f1d4b6b9b0714fa5a8d168f096bc692d3"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/planned_fans.py",
+      "sha": "4c29228935fcd1c2b8a1486352b478d6ce7c97c5",
+      "sha256": "6c337b79bdf5b1ba4b0db14f760dad4ca8aef41395e0a93a6ef0fbd364640711"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/ports.py",
+      "sha": "79ccb64212b8a1caa707b3d59511dd11f205adc4",
+      "sha256": "8691a8e91aa4e7f3fb824f327f916ae375774cb9a8fc76b53cead5b0a63423e1"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/row_align.py",
+      "sha": "1c7ea82d3a39f7b403c3c004a6bb2884dee9cb66",
+      "sha256": "dd11ac6a725bb1f9ec06d91238bd774ead800af462b2e0bf68ca5d709b6457df"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/single_section.py",
+      "sha": "7b1799e2d741365cdece46631d43caf2d783e6bc",
+      "sha256": "b4c6bd71ecd80b3815f34445ec453624de58015a9d771b5ef3a4bbc51f752e42"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/snapshots.py",
+      "sha": "2cd8fa3dc7d9df21f727a2c097ee2ecc7cf573ee",
+      "sha256": "1e0c36567cfaacee61935d18ee93f945b53cfa46715eecd313555fc2d4d72e41"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/phases/spacing.py",
+      "sha": "fb563f823991b353181120c1a338231c7c11bfb2",
+      "sha256": "d151c930ec48ed3a177dc7f792029abf35d6447ee0f39285fa03aa83885d6539"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/rail_mode.py",
+      "sha": "4a52078c8e5b253ef9c229f786f5351d38760b00",
+      "sha256": "ba6253e9e23c673d449a129061d86b16e1f76a8f96c2e49008dc44f010de39c8"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/route_plan.py",
+      "sha": "add4f7b6cee7b16cf31180c9c64116cce6edb543",
+      "sha256": "e71ec45b9ae5a5d5437089af14edef4aa19bcc08bafc435ed30056298544b880"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/route_reservations.py",
+      "sha": "a3956e25db15dcfc93e765435d9a4aba39b4ff36",
+      "sha256": "8254194852ab05f8f5be7bb98f062d57dbd3470a4c81a21f9598dfa54f5223c8"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/route_topology.py",
+      "sha": "e022738da7030dd2f6c427989f9015ca743a3e0e",
+      "sha256": "89e155f4627e1cb753649eec622dbf2d6e2940909ac63df9ab5f3c89ed315d42"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/__init__.py",
+      "sha": "ec3a8f6d7eb5b764c43ddd5a8394da7af75720ec",
+      "sha256": "a99d5aa7889660393e0265c13d4d6d67e8271acbdc893bcf241db09a1e1d0b69"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/arranger.py",
+      "sha": "28f806dca5aa36bec21259c16dc7e63224b46ea1",
+      "sha256": "5c8f8ba62551c2a4b0364c03c82c1c8ee6ac568141724fd3eeea21897991c81e"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/bundle.py",
+      "sha": "d1074d81c919abde27aa1f93dc6f333a0dc21e9a",
+      "sha256": "73dd3d001885fe36c8db6d477050a678b70cf49682bf46a2c60a90658c2b0a48"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/centrelines.py",
+      "sha": "8fa5d59c897bddb1c72ecac53740993fbd122697",
+      "sha256": "ea6ef65b30ccdce946a2d0467db3d7a6b38f8b8ac68bd574f5329f1d6340e1e1"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/common.py",
+      "sha": "1af408b5f4dca8aef530b3a64245555b1e906ebd",
+      "sha256": "e1931daa4c168849cc52ddf9f28befff5ed71ab0aa482b96c6ed573b55d1aff4"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/context.py",
+      "sha": "b635d32e348ffcfc4be3e7f6e7f11711a19566da",
+      "sha256": "c2db0213cba47d90cd02a85b0bb38fde89f474ce6cd7617bea34068a92a1d1d5"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/convergences.py",
+      "sha": "e257a86f51e34c1ac513200639a046160e754c5e",
+      "sha256": "d92065b1172ea2264b9b34fe9e69ab252897e3a8b8da9bf8f0aca1a8abaa654a"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/core.py",
+      "sha": "a7adece6260e89ababa3ef4039e96907218d1557",
+      "sha256": "c403b774743ef3204f601e880e47dbd0be6d8a4a32c5c69dfdb6729a7e3b9104"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/corners.py",
+      "sha": "798cde5c1e92a47590b113bc1c4054286f18ee55",
+      "sha256": "6be7fcd581cf0be5bb3475b816ba5819344a3639ea1910cbf2b1952ddc2e76b6"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/exit_turns.py",
+      "sha": "dfeff0a1b6e49be57667cb1fdd7f5631ab2d1bd1",
+      "sha256": "359f359cd609154c8405013415c813d7215a9aab0d34df0a5c0e8ba72691a2b8"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/families.py",
+      "sha": "6a2f4e82080edf107bc4274cb2aa7c5ee9ff9af3",
+      "sha256": "2c14003425732eb106d4dbe0179248eb6f908bd66fa0d5649143b7283f2ff0af"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/inter_section_handlers.py",
+      "sha": "8e807f506f625e7613fcc2040c3bbe5351f75156",
+      "sha256": "ac833ab426b057161f2b832fe545499405e52e93249d64d2081b26c3a8a9715f"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/intra_handlers.py",
+      "sha": "6ccfb7f45f35caa4d0b42544e02ec0d3883447b6",
+      "sha256": "13594cbb5f7b9c59b741392c3164ba36c3a60314c1713aa070d0b99af02e1b20"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/invariants.py",
+      "sha": "940ccf0e4dff09a087b6dcef1114b37c393ac2ce",
+      "sha256": "d0041509c4cf8524f3ce5f7cbfbc7cf0c0814a08f7a1db1145924f029c26ea53"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/member_geometry.py",
+      "sha": "8fa7472c9f44ce851526a30824096b02dd200bdc",
+      "sha256": "efb0b526da8f152457b1e7162cb688c5e06fb94071ec9c05630c2d07b4ae99c1"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/normalize.py",
+      "sha": "04ea466b892a6eba08e638977f95d05566fabecf",
+      "sha256": "f2e897738e2d52f24835056ee741f409fcf4543877f92d7a8152fce37e99edf4"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/offsets.py",
+      "sha": "8f5abc4f51ada55a2c83f063da4adec81208d87d",
+      "sha256": "24b843b880a890838e3b45655c81b61e3020c9ac8ada5206e856d5b5e487d85f"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/orientation.py",
+      "sha": "fda14ab14bde0813cab5c4cf94187c64d342dbdf",
+      "sha256": "eaf59dccb11efac733042dfe96860afa5b56a1b00b778e135b174e857fc95037"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/perp.py",
+      "sha": "3215bb8713795ebd49baf0af54f7956623b0976c",
+      "sha256": "51102f3963c37f09aead9a3cb41619b622c7b32637def71eda1616211bdf6059"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/planning.py",
+      "sha": "2c7fe931fd8737c28540d37571c733e7e504e5d9",
+      "sha256": "cd979238a33ba25adf32bdc490d6b907120705519dd9112bd9b1c3098e3d3b0e"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/postprocess.py",
+      "sha": "6541b7834d63e644bdb4d30a4c98b08fac537333",
+      "sha256": "af66227b31315dbd28b53d684a2ed84b2114e279d980b85e3dab7c3a24d785f1"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/rail.py",
+      "sha": "5c1b451f7ea25d5e885b4409f85bd0ddf5e5572d",
+      "sha256": "8c31d8d2eb8a43f6d4df16f42302db80085df7aec4fe059d30a8ba1ff27e5405"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/reserved_bands.py",
+      "sha": "8ed1e6ce7a58908fb63b7364d768c830005f44c1",
+      "sha256": "80120f3f5c45c8787d194cdef57397ed435a13c837e12d1ed46e8170c3782c2e"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/reversal.py",
+      "sha": "d6bfffc25f81751f90d53e849bab8310027b1d95",
+      "sha256": "04ff411af2c4569dad845a1deff50816e3781e8440ccb97007af34d67240e287"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/seam.py",
+      "sha": "ca6a68ead1a89cf28e945b0a7bb144e1da23945c",
+      "sha256": "6bb955cace5e6bcfd12dc637a59b6f65bc78e32da024b765ccccd0317288ab97"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/system_emission.py",
+      "sha": "d5696c858aa4b93de3c896cde9a06663eae49ac2",
+      "sha256": "8f38192748b83260b9f8b23bd6e5a3abdecc463feeec694c1d1d3c34f639f70d"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/routing/tb_handlers.py",
+      "sha": "3db6c18a786ea12fa2e69d2767a87b74371149b2",
+      "sha256": "9200145e8bbfa821219ff35c966b960699030b6eaac58e10370ade2268ff3a6c"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/seam_topology.py",
+      "sha": "856ca44e22e3f91459febe4cc507fdaef7fd6a0c",
+      "sha256": "bd4e23e108b42c4081e250ccc114bdb979ef41626f505e1e8276fc1bcf0f4723"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/section_placement.py",
+      "sha": "0c5ac3c7d25c240d1bf90d4f272ae4c9d0720d8a",
+      "sha256": "8f639056e3498401213626c65b0d33fa3747d2d8170e4d5b5019bde1b61395b5"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/layout/settlement_demand.py",
+      "sha": "2c872b4532d1852fdc0aafd64fc67297f273a7a8",
+      "sha256": "2dea9f75269a03c63251b8d496d88400b003813f6745089a2becfa4470d3aee2"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/live/__init__.py",
+      "sha": "5634675ee225246e46f807dd82222bffab212b41",
+      "sha256": "b97875ee4eedd092fa8f2f0e7c3d6447e134593332b49886546eb218927f8c69"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/live/mapping.py",
+      "sha": "f4385a988cd2004173ff310bb557620d2e3fb313",
+      "sha256": "0755bf57a7d542e08215d55184beef5607829e0892b914eac73694b72b2b8e7b"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/live/schema.py",
+      "sha": "5f0d84d63b3a0089fece6d2315425d16b2b65e49",
+      "sha256": "5d844d90e403ddad95258da92b00589d8d0fe9b98851b34cdce1009483cea994"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/live/server.py",
+      "sha": "e4e715da7e22de87512fd7f6f338871b34ab25a7",
+      "sha256": "c79096234e8059d29ba924b5d99cf7eff77eb27f76978cf6c3c4d476ff79ab66"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/live/state_schema.json",
+      "sha": "f6ed836365c410b0caf2f2cc4b08aa50d10f3446",
+      "sha256": "4497efde5a0102d533ec4b31324e0b53508ee1b7a23037f75e639891e1ec4b71"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/manifest/__init__.py",
+      "sha": "da44f1c7e02542f69a41974deca6d65bfc77530b",
+      "sha256": "7e3e6000e677da3d22a413e3f4979742be2463b54bcac2a0d61116476a3e4278"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/manifest/_common.py",
+      "sha": "6134043b9edd50401f1cfef6b230840aec00ebdc",
+      "sha256": "2c18b202abca2948756d0d8c015070fa10f22d3217c7cece5012ffa54662ce81"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/manifest/produce.py",
+      "sha": "6b44cb71374e42c270b804d5b73ea26624315ea6",
+      "sha256": "e82e3db4b76c6de31e1df78aac197f8bce7f7abea003896423ae62a5af0d0896"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/manifest/read.py",
+      "sha": "47a8ca651ce3fb5d9ff7d44d635c4b57d425c2ec",
+      "sha256": "49bc4485fc6ada1bc695dba58dc88fba1f30555ebce2b9ce5952bda49e9fca8e"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/manifest/schema.json",
+      "sha": "c97a59824b3c813ba3428ccfde2e79c5ec638b42",
+      "sha256": "2506c0a273fd421727dab874e09ab9a8b01100ca36aa236d9d3d01aa77bd0944"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/manifest/schema.py",
+      "sha": "b355d1ae30ae0db792880529f28ecd915504f2e9",
+      "sha256": "56893007a38bcdcf0efe6f381b95f247fb9dad6e21ad1d32f814dfa0c20ed3ba"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/options.py",
+      "sha": "530fc593e5334fe5621306eea097d767db0a0da0",
+      "sha256": "0da1a23aff103f9b192788ade03b7872fb109a90fc062d224fd943334b78c83f"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/__init__.py",
+      "sha": "84a6beac3ea2bdd664cb0473f9a5f48fca394d64",
+      "sha256": "c01dd25f78975ccb07b0e27c07bf9b7db9e2db018a1994064ed02111a0605132"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/commitments.py",
+      "sha": "944f57be71bebf0032183eda83520c4849a779ee",
+      "sha256": "0867968edfa96a25cbc7a77bc18a337f808b4d8e596014b24d1ca6c122ecd57b"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/directives.py",
+      "sha": "fe06a73e495f77e362ab795c2815859f7c39734a",
+      "sha256": "4febcf28874977539625dc297e00a283d8f1f6e7265b98f90c505451ccfe8be0"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/grammar.py",
+      "sha": "fcba465a048840d27452ff26350361f1206fad57",
+      "sha256": "36362d91a956b985774bcf9da8dbf9b62c23b726c61502b8c4a396ad6c0aa643"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/mermaid.py",
+      "sha": "6ef05bf4bc12e7fabf269096b7118f4ab8e0bb61",
+      "sha256": "19ad433f8930ba68351be9b7615f3b93eed30f4be36e3220c8a2e8cf92b386e7"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/model.py",
+      "sha": "458ff5edae6af990d90db281d37cb73fd12fbcdb",
+      "sha256": "557d9053cc8f126e819ae7cf5aa209f0f469a86e2dab3faae701df2ec0ddb027"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/provenance.py",
+      "sha": "11f8ba164c861d4dc7e73f0163aacff4c988709b",
+      "sha256": "06f19b41a0f891b985a883fbf5cdd26c965b6118eb3fc319d72ab00e72a119bf"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/resolve.py",
+      "sha": "bde0668285874b927f8e82157aa4c3a7ca184024",
+      "sha256": "aa33929eb425b79632f1852a1b3fdb52ff1069d1f700b37355531621add7ffe2"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/route_topology.py",
+      "sha": "ebdb6e84e32a6cfe74b069649e16765d5208bb65",
+      "sha256": "7c805179d43cbe5a6a3dbc1356d1f7cf6658a6e008e90de16813291a0ad5f26f"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/parser/validate.py",
+      "sha": "d93754e02a410973b2da376fc0327d45d6a9eaa8",
+      "sha256": "58d0def7f57c18400cb91f1d70e34e643630a5d03f5441d09a1831060c13509d"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/py.typed",
+      "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/__init__.py",
+      "sha": "f11f93d822c5fde8992dd0c5956bc59c78318a90",
+      "sha256": "9b7efbb580d7816b7bced21d9adec2c721ad30b1848e7a60c569fc6df392889d"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/animate.py",
+      "sha": "3dc06b758f85827158a0e7f87114896cf5e79d02",
+      "sha256": "a71837e712b3f832bd0549d744ac4e1be72d263caf7fa9aae0eae6edac5a3088"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/bridges.py",
+      "sha": "75e2edb24ef5ffdaef51be0e15d0a62a9b319933",
+      "sha256": "452484d1c0df46ef80b7616dcbebcacd189c73cd8643d45e13b9c9dd9988d4bc"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/constants.py",
+      "sha": "60577a1b2e364d942e93841b7425a1050e2d7a94",
+      "sha256": "d75032f3b4fcd2867854bf666ef9e103597611b71a08e270bfcf5693991478d6"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/driver.js",
+      "sha": "6a2b2985fc12d17354e44835d346d3e0d8797894",
+      "sha256": "f1e61b2888d9119a4bc13aee1ed63a2f9122cc3627470ffa8a3bd0652a76752a"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/driver.py",
+      "sha": "524a26d3a0cd445dcbc97226fb68ee68d8f5cffc",
+      "sha256": "bb54e8ab616116a8513fffe36ca72cdfc9cfdf7254d766dc5d0c971efa5dce1b"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/font_embed.py",
+      "sha": "e44ed236889db0f063490d0e85c4f63537cab378",
+      "sha256": "bf43deba89cef0e1a5b2e2d0d55cd45345a63fcbb05533b05f97ae7f6dbf42bd"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/html.py",
+      "sha": "aaaab5d2edbb7cb2db84fe614b9713214ddceeec",
+      "sha256": "053667a527d476b9a23e95fe9610058cf6614c528ddb6d7321b313f5364677b4"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/icons.py",
+      "sha": "93086a3b1d7b30d7abbe6c5c6f5f24a5430f7a03",
+      "sha256": "78f36c0e04e4db15235fb171611430523fd1c7c9f6063966589a1210281fdfaf"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/inline.html",
+      "sha": "965ab69f3feefe5f60ce32824e2288866fca136b",
+      "sha256": "f1ce5b6d164c6d33176f405a569639f9ea97f7bfe776452032652767e2e2ddc6"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/legend.py",
+      "sha": "16f322f41f64823299ce32d7027d463c050061fb",
+      "sha256": "b443425026fc1d43acc8859c606be643af05023b91709a67b3ba5bf836c23034"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/manifest.py",
+      "sha": "32880e57bb82aaf0361830f7a4c20094a575ef67",
+      "sha256": "fac86eb09cf3441741ae4071c9a1e5e207482c06ed21baf947fdc813b29b0c14"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/ns.py",
+      "sha": "57215525012c0d5c41ee439603dd7be0aa984270",
+      "sha256": "5774c3f862bf96b79f56c0c0d791728f775f9e3ac82fd582e993ecdc58f6bf45"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/path_geometry.py",
+      "sha": "3c2b65f3fa711f517619147aa9134c330d5bf7d9",
+      "sha256": "612f53c46ae3c377adb263f1d9e1731affab7fdaa6a2df7ddc8112c8101068f5"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/plan.py",
+      "sha": "2eb343e10425289590feecf97ef7aefd70932dde",
+      "sha256": "233c4ed3ba16d5882858137efeecd9881440e57961bdb993878094f0de752179"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/raster.py",
+      "sha": "595614da0343af32195734e07c2bcdd76af48311",
+      "sha256": "bc661e150a1e1228b8669ea6f48a12e61da0a0444b250775c3ca73763af1adcf"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/section_header.py",
+      "sha": "d0596a25eb799904225b305e0423149e53c1ec12",
+      "sha256": "a921094a572754590bd0c4a0b5345cdb7561fd0ab8d096206635913df7eb1908"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/standalone.html",
+      "sha": "fe131e4344d59e9b0cdf9e67cfd90b3316d7b511",
+      "sha256": "e810a26883de5d5972d4fed35ee8a47918209a724f1aae4012c12428abc93603"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/style.py",
+      "sha": "f26590fe128a21df2abcddbbb0730b192cf1153f",
+      "sha256": "8db006883297f1aa5fa08d3fe1b95e23fd9dfb74682ff406914ccbe9274dad2a"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/svg.py",
+      "sha": "fb11c004d2489b8287fa3d0b05074772c0238885",
+      "sha256": "e056d7a017086fe7f4566c690b2e0417cb0f60be80b883d71eefb4e7095f454c"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/validate.py",
+      "sha": "8ba9c8597f11489a341563779e50a1b780fbe192",
+      "sha256": "8e6917f5baeb350e51e6ed4e16fd44da97e56f9c5b38fbf68a7f66156df59ec6"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/render/video.py",
+      "sha": "b5dbc027f44ec008120194c30dd88e7587cd46aa",
+      "sha256": "36d1a056b1f418416571ef9e5099dd7281c427c247dc454cf471d8aa6105bb48"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/text_metrics.py",
+      "sha": "aeb726135d4ecfba9140483cbf272751d499ad12",
+      "sha256": "c0f2253a7be576e0811f353a42c552ef73299416f247beea20b5429cdac4ebc0"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/themes/__init__.py",
+      "sha": "c32f09132143b8c75e4cf3619d734b92c6cfadca",
+      "sha256": "6638a0ef6be5a7ca01c0d037daf08062fe3a01301489786e6deb7fe1aed016ea"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/themes/light.py",
+      "sha": "a3ef448b9752f40ac830b49b904d45c76e26a889",
+      "sha256": "289e71541ea04701f415f5819879146cf3b97c4a0f9f0bde333a70d7505e5132"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/themes/nfcore.py",
+      "sha": "d4578d4ea032451d1e0ae6a13a104cd3b5962309",
+      "sha256": "d489f3fa0821881aae85eec08f494f91cdfca41e19ea012c8e9b478e7470ee21"
+    },
+    {
+      "project": "nf-metro",
+      "repo": "seqeralabs/nf-metro",
+      "ref": "pypi:2.1.0",
+      "path": "nf_metro/themes/seqera.py",
+      "sha": "820a4d6ec3f396877c65f8d79f4bd5131c0733d2",
+      "sha256": "57411b221d17160a22b2caf64f22e6508c8de2af9b29f9c53237c5577a7d1535"
+    },
+    {
+      "project": "doodle-anim",
+      "repo": "feitangyuan/doodle-anim",
+      "ref": "bfc4c257151450c03f13013dec5585ebb935aeb4",
+      "path": "LICENSE",
+      "sha": "9fd1b7c397c1f4574ff572f3ea242ca88c0e899a",
+      "sha256": "2d3770de429ec31279379b2386815bf657f02cca0cb1c9e04fb17972b121387f"
+    },
+    {
+      "project": "doodle-anim",
+      "repo": "feitangyuan/doodle-anim",
+      "ref": "bfc4c257151450c03f13013dec5585ebb935aeb4",
+      "path": "templates/doodle.html",
+      "sha": "37dd462c19c7a2e84820c10e53eb596ea5f8d2d6",
+      "sha256": "498c35a3ac14e120a76be21643deed09c06c4c04ff37bf60433a8e8fcca8c167"
+    },
+    {
+      "project": "chat-rap-video",
+      "repo": "weibo-job/chat-rap-video",
+      "ref": "546d0ea7bbe14ee5ca58620255a8363d95246fdf",
+      "path": "LICENSE",
+      "sha": "3007c0854cd2e589835900cb744093b9ec9f79f7",
+      "sha256": "b58f9f7cfddddba87e5fdae88028eb241cba8a0488c7a7ecf377b344c51b9b8c"
+    },
+    {
+      "project": "chat-rap-video",
+      "repo": "weibo-job/chat-rap-video",
+      "ref": "546d0ea7bbe14ee5ca58620255a8363d95246fdf",
+      "path": "assets/chat_template_v11.html",
+      "sha": "5f132e7f12b5f1c8ffc1577ab799900e359aa576",
+      "sha256": "86cab8c38a9560775da97021fe5a0ea197cb3c6ccbf146c79889c545993c1eb5"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/earcut/LICENSE",
+      "sha": "e8c743021ce8b1d66e518740be16ec6647589192",
+      "sha256": "0b348fff56384b43dbb37593906904e56d0f9deb51eae590d4dc6d427fbf1808"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/opentype.js/LICENSE",
+      "sha": "023e618778ffde6c2a1ff1812452f9bfdf894f77",
+      "sha256": "a5b87c9bc191e7f9c06b07bd7cbbed3ed846dfdb50e859484b2c245aa1ab2e61"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/jspdf/LICENSE",
+      "sha": "dc7d3a9fa305defebad6cb88ba4cd9776f26fcd3",
+      "sha256": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/katex/LICENSE",
+      "sha": "37c6433e3bedca7a97e08fe35d98582a5f7bac0c",
+      "sha256": "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/html2canvas/LICENSE",
+      "sha": "a73ffc9143edf0da1c821e920b6ec8582aba61f3",
+      "sha256": "86200ce4e92d9a22c41c8647a55f7a5fddff304ff89b4d36ecc699ed8c123d2c"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/three/LICENSE",
+      "sha": "8ada2a5f982916b0ba4b7a0aa7de347587e745d7",
+      "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/gifuct-js/LICENSE",
+      "sha": "3cad2bef47bc56ca2f1ecfccb8244e8f8b99d78e",
+      "sha256": "8633cda68d7b47e98e3e563a2833e63792edeecdb24cab02bfb15f25c1b37072"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/mp4-muxer/LICENSE",
+      "sha": "06808a52c18071b028252a769cb974100496a947",
+      "sha256": "75c54aae7ef6ad652f684f9dd3b71e4dcef86ccebd88cf441ceed7f5eec037c5"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/polygon-clipping/LICENSE.md",
+      "sha": "0c7f4283a4131ec69d72bc35121dde223e5e9992",
+      "sha256": "864ae9e4ed75e1571a3bcf5dc9070264213445b32e7e2af5bf60eba46fb656d0"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/lottie-web/LICENSE.md",
+      "sha": "9c1cd7cb84357f4aa3d57ff961cd37d993055ef5",
+      "sha256": "9d8d4d8b4bb99572ee8b51025a30b8493d949798cac465c6c15b1b29420bcb06"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/dompurify/LICENSE",
+      "sha": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/dompurify/LICENSE-MPL",
+      "sha": "14e2f777f6c395e7e04ab4aa306bbcc4b0c1120e",
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/webm-muxer/LICENSE",
+      "sha": "a6f06ae21ea689bb1370aa675f06f4091f71953e",
+      "sha256": "1619f937fa43f768d38d2bfb35d228258e0dffe1f71c4202b338df20e68ff680"
+    },
+    {
+      "project": "manim-web",
+      "repo": "maloyan/manim-web",
+      "ref": "npm:0.39.4",
+      "path": "third-party/@mathjax/src/LICENSE",
+      "sha": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  ]
+}

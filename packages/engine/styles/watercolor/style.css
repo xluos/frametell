@@ -1,8 +1,6 @@
-/* Watercolor */
-:root { --ink: #3c7dba; --soft: #7da7cd; --muted: #abc4da; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
-#frame { background: #fbf8f1; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #fbf8f1 0%, #fbf8f1F0 55%, transparent 100%); }
-
-.subs span { color: #3c7dba; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Watercolor; palette names retain their literal colour meaning. */
+:root { --ink: #36332D; --soft: #696660; --muted: #939089; --hand: 'LXGW WenKai', 'Caveat', cursive; --latin: 'LXGW WenKai', 'Caveat', cursive; }
+#frame { background: #FBF8F1; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #FBF8F1, #FBF8F1EE 55%, transparent); }
+.subs span { color: #36332D; background: #FBF8F1F2; border-radius: 0; box-shadow: none; }

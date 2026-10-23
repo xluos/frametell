@@ -1,8 +1,6 @@
-/* Paper Collage */
-:root { --ink: #1d1b19; --soft: #605c56; --muted: #8f8a81; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
-#frame { background: #e2dbcd; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #e2dbcd 0%, #e2dbcdF0 55%, transparent 100%); }
-
-.subs span { color: #1d1b19; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Paper Collage; palette names retain their literal colour meaning. */
+:root { --ink: #1D1B19; --soft: #504d48; --muted: #7a756e; --hand: 'LXGW WenKai', 'Caveat', cursive; --latin: 'LXGW WenKai', 'Caveat', cursive; }
+#frame { background: #E2DBCD; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #E2DBCD, #E2DBCDEE 55%, transparent); }
+.subs span { color: #1D1B19; background: #E2DBCDF2; border-radius: 0; box-shadow: none; }

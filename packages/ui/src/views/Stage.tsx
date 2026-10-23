@@ -115,7 +115,7 @@ function Thumb({ p, project, poster, className = '', badge = true }: { p?: PageV
         </svg>
       )}
       {badge && p?.status === 'ok' && <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-jade text-paper" aria-hidden><Check size={10} strokeWidth={3} /></span>}
-      {badge && p?.status === 'flagged' && <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-warn text-paper" aria-hidden><TriangleAlert size={9} strokeWidth={3} /></span>}
+      {badge && p && ['flagged','unreviewed'].includes(p.status) && <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-warn text-paper" aria-hidden><TriangleAlert size={9} strokeWidth={3} /></span>}
     </span>
   );
 }
@@ -207,7 +207,7 @@ function Film({ run, project, ids, tl, subs, playKey, takePlay, onFocus }: { run
                       <Thumb p={run.pages[pt.id]} project={project} poster={tl?.posters?.[pt.id]} className="absolute inset-0" badge={false} />
                       {on && <span className="pointer-events-none absolute inset-0 rounded-[9px] shadow-[inset_0_0_0_1.5px_rgb(var(--fs-accent))]" aria-hidden />}
                       {on && <span className="pointer-events-none absolute inset-y-0 w-[2px] -translate-x-1/2 bg-accent shadow-[0_0_0_1px_rgb(0_0_0/0.25)]" style={{ left: `${pos * 100}%` }} aria-hidden />}
-                      {st === 'flagged' && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-warn ring-2 ring-black/20" aria-label={statusText('flagged')} />}
+                      {(st === 'flagged' || st === 'unreviewed') && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-warn ring-2 ring-black/20" aria-label={statusText(st)} />}
                     </span>
                     <span className={`mt-1.5 flex items-baseline gap-1.5 truncate text-[11.5px] transition-colors ${on ? 'text-ink' : 'text-ink-3 group-hover:text-ink-2'}`}>
                       <span className="font-mono text-[10.5px] tabular opacity-70">{i + 1}</span><span className="truncate">{section}</span>
@@ -352,7 +352,7 @@ function Focus({ id, active: shown, playKey, wantPlay, run, project, ids, tl, on
   const [light, setLight] = useState<{ kind: 'frames' | 'sheet'; i: number } | null>(null);
   const i = ids.indexOf(id), p = run.pages[id], sb = run.storyboard?.pages.find((x) => x.id === id);
   const lines = linesOf(id, tl, run);
-  const drawn = p?.status === 'ok' || p?.status === 'flagged' || finished(run);
+  const drawn = p?.status === 'ok' || p?.status === 'flagged' || p?.status === 'unreviewed' || finished(run);
   const prev = ids[i - 1], next = ids[i + 1];
   const pt = tl?.pages.find((x) => x.id === id);
   const timed = lines.some((l) => l.abs != null);
@@ -504,7 +504,7 @@ function Focus({ id, active: shown, playKey, wantPlay, run, project, ids, tl, on
                 );
               }) : <li className="px-2.5 text-[13px] text-ink-3">{tr('stage.noNarration')}</li>}
             </ol>
-            {p?.status === 'flagged' && shownIssues(p.issues).length > 0 && <p className="mt-2 flex items-start gap-1.5 text-[12.5px] leading-relaxed text-warn"><TriangleAlert size={13} className="mt-0.5 shrink-0" aria-hidden />{shownIssues(p.issues).join(tr('stage.issueSep'))}</p>}
+            {p && ['flagged','unreviewed'].includes(p.status) && shownIssues(p.issues).length > 0 && <p className="mt-2 flex items-start gap-1.5 text-[12.5px] leading-relaxed text-warn"><TriangleAlert size={13} className="mt-0.5 shrink-0" aria-hidden />{shownIssues(p.issues).join(tr('stage.issueSep'))}</p>}
           </div>
           <div className="flex items-start">
             <button className="fs-btn fs-btn-secondary" onClick={() => onRef(pageRef)} title={tr('stage.editPageTitle')}>{tr('stage.editPage')}</button>
@@ -544,7 +544,7 @@ export function Stage({ run, project, selected, onSelect, playKey, pagePlay, onR
   // already booted on the page last opened (or rested on), so opening a page is instant and coming back costs nothing.
   const [warm, setWarm] = useState<string>();
   useEffect(() => { if (focused) setWarm(focused); }, [focused]);
-  const drawnIds = ids.filter((x) => ['ok', 'flagged'].includes(run.pages[x]?.status));
+  const drawnIds = ids.filter((x) => ['ok', 'flagged', 'unreviewed'].includes(run.pages[x]?.status));
   const ready = (x?: string) => (x && ids.includes(x) && (drawnIds.includes(x) || finished(run)) ? x : undefined);
   // on the film view it waits a moment, so the film's own player boots first
   const [settledIn, setSettledIn] = useState(false);

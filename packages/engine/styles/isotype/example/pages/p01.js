@@ -1,13 +1,7 @@
-ENGINE.visual('p01', (P) => {
-  P.title("一百人里有多少每天喝咖啡", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  function fig(x,y,c,at){ P.circle(x,y-46,34,{at,color:c,sw:3}); P.line(x,y-24,x,y+40,{at,c,sw:5}); P.line(x,y,x-34,y+10,{at,c,sw:5}); P.line(x,y,x+34,y+10,{at,c,sw:5}); P.line(x,y+40,x-24,y+92,{at,c,sw:5}); P.line(x,y+40,x+24,y+92,{at,c,sw:5}); }
-  for(let r=0;r<3;r++) for(let c=0;c<8;c++) fig(340+c*170, 360+r*170, 'muted', P.c(0,0.2)+r*0.2);
-  P.text('一百人', { x: 300, y: 260, w: 240, size: 40, weight:700, at: P.c(1), cps: 4 });
-  P.arrow(1500, 300, 1500, 640, { at: P.c(2), color: 'red' });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p01', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');
+    return t=>{c.fillStyle=N.CREAM;c.fillRect(0,0,1920,1080);for(let i=0;i<8;i++){c.save();c.translate(360+(i%4)*360,350+Math.floor(i/4)*350);c.scale(235,235);N.drawFigure(c,N.joints(N.runCycle(t*.8+i*.13)),i<5?'#be453f':'#324c74','#8b7864');c.restore();}};
+  });
 });

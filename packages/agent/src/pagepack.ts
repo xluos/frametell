@@ -33,8 +33,10 @@ function examplePage(style: string): { id: string; code: string } | undefined {
 }
 
 export function pagePack(style: string, extras: string[]): string {
-  const parts: string[] = ['# This film\'s components and worked example (ready for you)', 'These components are already registered in `META.extras`: call them directly as `P.xxx(...)` in the page. **Don\'t** run use-extra for them again, and don\'t look for their source in engine/.'];
-  for (const e of extras) {
+  const parts: string[] = ['# This film\'s components and worked example (ready for you)', 'The style kit is auto-loaded by boot. Extras listed here are registered too. Call `P.xxx(...)` directly; do not register or search for them again.'];
+  const kit = path.join(ENGINE_DIR, 'styles', style, 'kit.js');
+  const files = [...(fs.existsSync(kit) ? [`styles/${style}/kit.js`] : []), ...extras];
+  for (const e of [...new Set(files.map((e) => e.replace(/^engine\//, '')))]) {
     const f = path.join(ENGINE_DIR, e.replace(/^engine\//, ''));
     if (!fs.existsSync(f)) continue;
     const docs = componentDocs(f);

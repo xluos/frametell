@@ -1,14 +1,6 @@
-/* Math animation */
-:root { --ink: #ffffff; --soft: #bcbcbd; --muted: #7d7d7f; --band-color: rgba(12,12,14,0.92); --latin: 'JetBrains Mono', 'SF Mono', monospace; }
-#frame { background: #1f2023; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.34) 100%); }
-svg.ink path[fill="none"][opacity="0.13"] { display: none; }
-svg.ink [filter="url(#wc)"] { filter: none; }
-svg.ink g.mark path { opacity: 0.22; }
-.tx.latin { font-weight: 600; letter-spacing: 0; }
-.chrome::before { background: linear-gradient(to bottom, #1f2023 0%, #1f2023F0 55%, transparent 100%); }
-.code { color: #ffffff; }
-.code .kw { color: #58b9e6; } .code .str { color: #f4d66b; } .code .num { color: #f4d66b; } .code .fn { color: #58b9e6; }
-.code .cm { color: #7d7d7f; }
-.subs span { color: #F4F2EC; background: rgba(10,10,12,0.82); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.32), inset 0 0 0 1.5px rgba(255,255,255,0.08); }
+/* Math animation; palette names retain their literal colour meaning. */
+:root { --ink: #ECEEF2; --soft: #b2b4b8; --muted: #848589; --hand: 'Helvetica Neue', Arial, sans-serif; --latin: 'Helvetica Neue', Arial, sans-serif; }
+#frame { background: #0E0F12; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #0E0F12, #0E0F12EE 55%, transparent); }
+.subs span { color: #ECEEF2; background: #0E0F12F2; border-radius: 0; box-shadow: none; }

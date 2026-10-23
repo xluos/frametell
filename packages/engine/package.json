@@ -23,6 +23,7 @@
     "template",
     "tools",
     "vendor",
+    "native",
     "README.md"
   ],
   "exports": {

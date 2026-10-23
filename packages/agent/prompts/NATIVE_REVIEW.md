@@ -1,0 +1,5 @@
+# Review the native drawing
+
+Review the actual screenshot sheet against the storyboard, spoken explanation, user requirements and upstream style grammar supplied below. Use `verdict` with pass and a concise list of visible problems. Do not rewrite the picture into Frametell's generic style. Native palettes, characters, paper texture, composition, camera, hand lettering, quantised motion and full-frame compositing are intended. Missing named colour tokens or absence of generic components is not a fault.
+
+Fail visible rendering errors, clipped essential information, unreadable text, misleading quantities, missing actions, broken recurring objects and violations of the source medium. Read layout findings as evidence, considering the native coordinate system and actual screenshots; decorative marks and intentional lettering are not generic DOM labels. Missing review evidence is not a pass. A working renderer alone does not establish visual fidelity to a reference film. If the user supplied a visual reference, judge that reference explicitly and flag a mismatch rather than accepting a different local interpretation.

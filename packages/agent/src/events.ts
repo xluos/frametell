@@ -5,7 +5,7 @@ import type { LintIssue, LintKind, Storyboard } from './project.js';
 
 /** `research` runs only when the request points at something to read or may search the web */
 export type Stage = 'research' | 'storyboard' | 'script' | 'narrate' | 'pages' | 'review' | 'render';
-export type PageStatus = 'queued' | 'drawing' | 'checking' | 'ok' | 'flagged' | 'failed';
+export type PageStatus = 'queued' | 'drawing' | 'checking' | 'ok' | 'flagged' | 'unreviewed' | 'failed';
 
 /**
  * Something about a page worth telling, by where it comes from. `msg` is always there, in English or in the model's
@@ -19,7 +19,7 @@ export type PageIssue =
   | { from: 'lint'; kind: LintKind; at: number; msg: string; data?: Record<string, string | number> }
   | { from: 'review'; at: number; msg: string }
   | { from: 'agent'; msg: string }
-  | { from: 'run'; kind: 'crash' | 'failed' | 'not-made'; msg: string };
+  | { from: 'run'; kind: 'crash' | 'failed' | 'not-made' | 'not-reviewed'; msg: string };
 
 /**
  * A piece of the film or of the user's machine the user handed the director with a message: a page, a narration line,

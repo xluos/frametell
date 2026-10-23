@@ -83,6 +83,7 @@
   function init(opts = {}) {
     frame = document.getElementById('frame');
     stage = document.getElementById('stage');
+    for (const page of pages) for (const dispose of page.sh.disposers || []) dispose();
     stage.innerHTML = '';
     pages = [];
     errors.length = 0;
@@ -120,14 +121,15 @@
     for (const p of pages) {
       const { start, end, index } = p.pg;
       const last = index === pages.length - 1;
-      const inK = index === 0 ? 1 : smooth(start - F + D, start + D, t);
-      const outK = last ? 0 : smooth(end - F + D, end + D, t);
+      const nativeCut = p.sh.native?.transition === 'cut';
+      const inK = nativeCut ? (index === 0 || t >= start ? 1 : 0) : index === 0 ? 1 : smooth(start - F + D, start + D, t);
+      const outK = nativeCut ? (!last && t >= pages[index + 1].pg.start ? 1 : 0) : last ? 0 : smooth(end - F + D, end + D, t);
       const vis = inK * (1 - outK);
       p.vis = vis;
       if (vis <= 0.001) { if (p.root.style.display !== 'none') p.root.style.display = 'none'; continue; }
       p.root.style.display = 'block';
       p.root.style.opacity = vis.toFixed(4);
-      if (SCRIPT.META?.pageMotion !== false) {   // META.pageMotion: false → plain cross-fade (films: the pages do their own transitions)
+      if (!p.sh.native && SCRIPT.META?.pageMotion !== false) {   // native renderers retain their own camera and transitions
         p.root.style.transform = `translate(${(-outK * 36 + (1 - inK) * 24).toFixed(2)}px, 0)`;
         p.root.style.filter = outK > 0.02 ? `blur(${(outK * 5).toFixed(2)}px)` : 'none';
       }
@@ -152,5 +154,11 @@
     for (const fn of window.FRAME_HOOKS || []) fn(t, layout);   // extras can draw things that live across pages (a host character)
   }
 
-  window.ENGINE = { visual, init, renderAt, get layout() { return layout; }, get pages() { return pages; }, get errors() { return errors; }, get colors() { return [...PV.unknownColors].map(([page, names]) => ({ page, names: [...names] })); }, source: (id) => visuals[id]?.toString() };
+  async function whenReady() {
+    await Promise.all(pages.map(async p => {
+      try { await Promise.all(p.sh.ready || []); }
+      catch (e) { fail(p, 'build', e); }
+    }));
+  }
+  window.ENGINE = { visual, init, whenReady, renderAt, get layout() { return layout; }, get pages() { return pages; }, get errors() { return errors; }, get colors() { return [...PV.unknownColors].map(([page, names]) => ({ page, names: [...names] })); }, source: (id) => visuals[id]?.toString() };
 })();

@@ -1,10 +1,6 @@
-/* Screencast */
-:root { --ink: #ffffff; --soft: #f6f7fa; --muted: #eff2f6; --band-color: rgba(255,255,255,0.92); --latin: 'JetBrains Mono', 'SF Mono', monospace; }
-#frame { background: #e4e8f0; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #e4e8f0 0%, #e4e8f0F0 55%, transparent 100%); }
-.code { color: #ffffff; }
-.code .kw { color: #151823; } .code .str { color: #4f55f1; } .code .num { color: #4f55f1; } .code .fn { color: #151823; }
-.code .cm { color: #eff2f6; }
-.subs span { color: #ffffff; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Screencast; palette names retain their literal colour meaning. */
+:root { --ink: #151823; --soft: #4b4e58; --muted: #767a83; --hand: 'Helvetica Neue', Arial, sans-serif; --latin: 'Helvetica Neue', Arial, sans-serif; }
+#frame { background: #E4E8F0; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #E4E8F0, #E4E8F0EE 55%, transparent); }
+.subs span { color: #151823; background: #E4E8F0F2; border-radius: 0; box-shadow: none; }

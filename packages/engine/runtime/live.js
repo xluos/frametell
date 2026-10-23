@@ -70,11 +70,11 @@
       if (!it) continue;
       for (const set of it.sets) {
         const d = gen.opsToPath(set, 2), op = it.options;
-        if (set.type === 'fillPath') s('path', { d, fill: op.fill, stroke: 'none', filter: 'url(#wc)' }, g);
-        else strokes.push({ d, stroke: set.type === 'fillSketch' ? op.fill : op.stroke, w: set.type === 'fillSketch' ? op.fillWeight : op.strokeWidth });
+        if (set.type === 'fillPath') s('path', { d, fill: op.fill, stroke: 'none', filter: 'url(#wc)', ...PV.materialAttrs?.('fillPath', op) }, g);
+        else strokes.push({ d, stroke: set.type === 'fillSketch' ? op.fill : op.stroke, w: set.type === 'fillSketch' ? op.fillWeight : op.strokeWidth, material: PV.materialAttrs?.(set.type, op) });
       }
     }
-    for (const q of strokes) s('path', { d: q.d, fill: 'none', stroke: q.stroke, 'stroke-width': q.w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+    for (const q of strokes) s('path', { d: q.d, fill: 'none', stroke: q.stroke, 'stroke-width': q.w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', ...q.material }, g);
   }
 
   /**
@@ -111,7 +111,8 @@
     c.width = w; c.height = hh;
     Object.assign(c.style, { position: 'absolute', left: x + 'px', top: y + 'px' });
     const ctx = c.getContext('2d');
-    this.tick((lt) => { ctx.clearRect(0, 0, w, hh); draw(ctx, lt, w, hh); });
+    const layout = PV.CanvasLayout.install(c, ctx);
+    this.tick((lt) => { layout.reset(); ctx.clearRect(0, 0, w, hh); draw(ctx, lt, w, hh); });
     return c;
   };
 

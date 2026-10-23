@@ -1,0 +1,39 @@
+"""Edge routing subpackage for metro map layout.
+
+Public API:
+- route_edges: Main edge routing coordinator (placement-pure)
+- route_edges_centred: route_edges + applied bubble-centring marker moves
+- observe_route_edges: route_edges + its context-local semantic observation
+- observe_route_edges_centred: route_edges_centred + that same observation
+- RoutedPath: Routed path dataclass
+- OffsetRegime: Which line-separation regime a route is in
+- apply_route_offsets: A route's final render geometry, separation applied
+- GapSlot: Symbolic gap-relative slot for a vertical channel run
+- compute_station_offsets: Per-station Y offset computation
+"""
+
+from nf_metro.layout.routing.common import (
+    GapSlot,
+    OffsetRegime,
+    RoutedPath,
+    apply_route_offsets,
+)
+from nf_metro.layout.routing.core import (
+    observe_route_edges,
+    observe_route_edges_centred,
+    route_edges,
+    route_edges_centred,
+)
+from nf_metro.layout.routing.offsets import compute_station_offsets
+
+__all__ = [
+    "GapSlot",
+    "OffsetRegime",
+    "RoutedPath",
+    "apply_route_offsets",
+    "compute_station_offsets",
+    "route_edges",
+    "route_edges_centred",
+    "observe_route_edges",
+    "observe_route_edges_centred",
+]

@@ -1,10 +1,35 @@
-/* Ink wash · benchmark film for the open-source Studio. Drawn to styles/ink-wash/GRAMMAR.md; also this style's regression test. */
-(function (root) {
-  const META = { style: 'ink-wash', title: "山为什么近浓远淡", name: "ink-wash", gap: 0.6 };
-  const PAGES = [
-    { id: 'p01', section: '问题', title: "山为什么近浓远淡", cues: [ "山为什么近浓远淡？", "先别急着回答。", "我们把它摆到眼前看。" ] },
-    { id: 'p02', section: '过程', title: '怎么发生', cues: [ "近处的墨落在纸上", "水少，远处的墨对了水", "就淡了" ] },
-    { id: 'p03', section: '答案', title: '原来如此', cues: [ "留白", "就是山里的雾。", "这就是答案" ] },
-  ];
-  root.SCRIPT = { META, PAGES };
+/* Local renderer capability benchmark, not a hosted Frametell film. */
+(function(root){
+  root.SCRIPT={META:{style:'ink-wash',title:"浓淡与远近",name:'ink-wash',gap:.6},PAGES:[
+  {
+    "id": "p01",
+    "section": "建立场景",
+    "title": "浓淡与远近",
+    "cues": [
+      "淡墨退远，浓墨把山峰留在眼前。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  },
+  {
+    "id": "p02",
+    "section": "观察动作",
+    "title": "浓淡与远近",
+    "cues": [
+      "淡墨退远，浓墨把山峰留在眼前。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  },
+  {
+    "id": "p03",
+    "section": "确认结果",
+    "title": "浓淡与远近",
+    "cues": [
+      "淡墨退远，浓墨把山峰留在眼前。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  }
+]};
 })(typeof window !== 'undefined' ? window : globalThis);

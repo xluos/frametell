@@ -15,6 +15,20 @@ function memoryConfig(initial: Partial<Config> = {}): ConfigStore & { saved: Con
   return { saved, load: () => structuredClone(c), save(next) { c = structuredClone(next); saved.push(next); } };
 }
 
+test('style previews only advertise the locally rendered poster', () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft-local-posters-'));
+  try {
+    const studio = new Studio({ dataDir, config: memoryConfig() });
+    assert.equal(studio.styles().length, 28);
+    assert.ok(!studio.styles().some(s => ['clay','neon','manga'].includes(s.id)));
+    assert.ok(['math','mascot','chat','metro'].every(id => studio.styles().some(s => s.id === id)));
+    for (const style of studio.styles()) {
+      assert.equal(style.loop, undefined);
+      if (style.poster) assert.match(style.poster, /^\/api\/styles\/[^/]+\/poster\.jpg$/);
+    }
+  } finally { fs.rmSync(dataDir, { recursive: true, force: true }); }
+});
+
 test('a Studio keeps its projects and settings where it is told', () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'frametell-studio-'));
   try {
@@ -157,7 +171,7 @@ test('a finished film exports even when the model it was made with is gone', asy
     const off = studio.subscribe(id, 0, (e) => seen.push(e as never));
     assert.equal(studio.export(id), true);
     for (let i = 0; i < 50 && !seen.some((e) => e.type === 'error'); i++) await new Promise((r) => setTimeout(r, 20));
-    assert.equal(rendered, 1);
+    assert.equal(rendered, 1, JSON.stringify(seen));
     assert.deepEqual(seen.filter((e) => e.type === 'error').map((e) => e.message), ['rendered here']);
     assert.ok(!seen.some((e) => e.type === 'paused'));
     off();

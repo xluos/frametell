@@ -9,47 +9,47 @@
 | 文件 | 给谁用 | 定义什么 |
 | --- | --- | --- |
 | `GRAMMAR.md`（风格说明卡） | 导演、画页 Agent、审页 Agent | 一句话气质、画面（底色、主笔、颜色各代表什么、线条、文字大小）、动作与镜头、节奏（每页时长、多久变一次）、禁止项 |
-| `style.js` | 浏览器 | `window.STYLE`：调色板（`ink soft muted faint red orange green blue purple yellow paper` 和对应浅色 `*F`）、背景函数、线条粗细 `sw`、抖动 `roughScale`、弧度 `bowScale`、是否单笔 `single` |
+| `style.js` | 浏览器 | `window.STYLE`：调色板（`ink soft muted faint red orange green blue purple yellow paper` 和对应浅色 `*F`）、背景函数、线条粗细 `sw`、抖动 `roughScale`、弧度 `bowScale`、是否单笔 `single`；新增风格另有 `material`、`kit`、`assets` |
 | `style.css` | 浏览器 | 字体（`--hand` 中文、`--latin` 西文）和少量外观覆盖 |
-| `kit.js`（可选） | 浏览器 + 画页 Agent | 这套风格专属的绘图组件；注释会自动整理成接口说明交给画页 Agent |
+| `kit.js`（可选） | 浏览器 + 画页 Agent | 这套风格专属的绘图组件；由 `STYLE.kit` 自动加载，注释自动整理成接口说明交给画页 Agent |
 | `example/`（强烈建议） | 回归测试 + 画页 Agent | 一部可运行的样片。30 行以内、拍点最多的一页会作为范例页放进画页 Agent 的上下文；`pnpm test` 会对每套样片跑分镜检查和布局检查 |
 | `fonts.json`（可选） | 导演 | 有这个文件，就表示这套风格“没有固定外观”：导演要在分镜里为每部片设计 `look`（风格卡、配色、字体、线条），服务端会校验并应用到每一页 |
 
-现有 31 套（29 套与 frametell.ai 官网一致，外加开源仓库原有的 `study` 和每部片单独设计的 `editorial`）：
+现有 31 个风格 id。29 个名字参考官网目录，另有开源原有的 `study` 和本分支的 `editorial`。名字与色卡对应不表示拥有官网完整绘图引擎。实际移植内容、版本和 devbox3 记录见 [来源与修正](style-sources.zh-CN.md)。
 
 | id | 界面名 | 一句话 | 上游来源 |
 | --- | --- | --- | --- |
-| `vector` | 扁平科普 | 深夜蓝扁平世界，一个比喻物贯穿 | adapted from Two-tone flat fill and the bird adapted from huashu-art-motion (MIT) |
-| `math` | 数学动画 | 黑底精确线条与公式，术语滑到下一行 | Frametell 自有 |
-| `ink-wash` | 水墨 | 墨线、留白与淡彩 | adapted from Brush, ink-bloom and mountain techniques adapted from huashu-art-motion (MIT, © 2026 alchaincyf) |
-| `swiss` | 瑞士网格 | 粗标题、细分隔线、超大数字 | adapted from Motion ideas adapted from huashu-art-motion (MIT, alchaincyf) |
-| `pop` | 波普漫画 | 网点、爆炸框、对话气泡 | adapted from Halftone, burst and balloon techniques adapted from huashu-art-motion (MIT) |
-| `neon` | 霓虹赛博 | 深色底发光节点与数据流 | Frametell 自有 |
-| `watercolor` | 水彩 | 半透明水色晕染 | Frametell 自有 |
-| `broadsheet` | 财经报纸 | 报纸栏宽、衬线标题与图表 | adapted from Chart grammar adapted from huashu-art-motion (MIT, © 2026 alchaincyf) |
-| `isotype` | 象形统计图 | 重复象形小人做计数 | Frametell 自有 |
-| `clay` | 黏土动画 | 圆润黏土身体，挤压变形 | Frametell 自有 |
-| `collage` | 剪报拼贴 | 撕纸、胶带、剪报拼贴 | adapted from Collage techniques adapted from huashu-art-motion (MIT, © 2026 alchaincyf) |
-| `one-line` | 一笔画 | 一笔不断的线画出整页 | Frametell 自有 |
-| `tech-dark` | 科技深色 | 石墨底、规整线条、一个青绿主色 | Frametell 自有 |
-| `screencast` | 屏幕演示 | 真实软件界面与光标操作 | Frametell 自有 |
-| `isometric` | 等距插画 | 网格地面等距方块 | Frametell 自有 |
-| `blueprint` | 蓝图工程图 | 蓝图白线与尺寸标注 | Frametell 自有 |
-| `instrument` | 机械图解 | 带引线编号的机械爆炸图 | adapted from Figure techniques adapted from Anatomy (MIT, © 2026 Ryan) |
-| `inked` | 手绘物件图解 | 手绘墨线等距物件与注释 | adapted from Hand-inked isometric drawing adapted from Colorfigures (MIT, © 2026 April Zhu) |
-| `engraving` | 铜版画博物志 | 旧纸铜版排线 | adapted from Engraving techniques adapted from LemoLab lemo-opuscar (MIT, © 2026 LemoLab) |
-| `midcentury` | 50 年代教育片 | 错版色块与几何讲解员 | adapted from Off-register cels, broken ink line, two-plate lettering, the manual arrow and the ornaments adapted from Lemo-Opuscar's midcentury-toon (MIT, © 2026 LemoLab) |
-| `crayon` | 蜡笔绘本 | 蜡笔笔触与涂填 | adapted from Wax-on-paper crayon strokes and scribbled fills adapted from crayon-book by LemoLab (MIT) |
-| `mascot` | 萌系讲解员 | 圆乎乎的讲解员演示 | Frametell 自有 |
-| `chat` | 聊天界面 | 手机聊天界面与消息气泡 | Frametell 自有 |
-| `manga` | 日式黑白漫画 | 黑白分镜、网点、速度线 | Frametell 自有 |
-| `old-map` | 古地图 | 旧纸海岸线、罗盘、航线 | adapted from Coastlines, rivers and borders from Natural Earth (public domain) via world-atlas (ISC, © 2013-2019 Michael Bostock) |
-| `metro` | 地铁线路图 | 45/90 度线路与站点 | Frametell 自有 |
-| `warm-story` | 暖调叙事插画 | 米色底扁平插画，一个比喻物贯穿 | Frametell 自有 |
-| `whiteboard` | 白板手绘 | 白板马克笔边讲边画 | Frametell 自有 |
-| `chalkboard` | 黑板 | 深绿黑板粉笔推导 | Frametell 自有 |
-| `study` | 安静书房 | 暖纸墨线淡彩，物体旁注释 | Frametell 自有 |
-| `editorial` | 知识杂志 | 导演按主题与视觉偏好每片单独设计配色、字体、线条 | Frametell 自有 |
+| `vector` | 扁平科普 | 深夜蓝扁平世界，一个比喻物贯穿 | huashu 技法参考；本地小鸟与 PAINT 适配 |
+| `math` | 数学动画 | 黑底精确线条与公式，术语滑到下一行 | 本地实现；官网完整源码未确认 |
+| `ink-wash` | 水墨 | 墨线、留白与淡彩 | huashu 技法参考；本地山形与 PAINT 适配 |
+| `swiss` | 瑞士网格 | 粗标题、细分隔线、超大数字 | huashu 排版/动作参考；本地组件 |
+| `pop` | 波普漫画 | 网点、爆炸框、对话气泡 | huashu 网点/漫画参考；本地组件 |
+| `neon` | 霓虹赛博 | 深色底发光节点与数据流 | 本地实现；官网完整源码未确认 |
+| `watercolor` | 水彩 | 半透明水色晕染 | 本地实现；官网完整源码未确认 |
+| `broadsheet` | 财经报纸 | 报纸栏宽、衬线标题与图表 | huashu 图表语法参考；本地组件 |
+| `isotype` | 象形统计图 | 重复象形小人做计数 | 本地实现；官网完整源码未确认 |
+| `clay` | 黏土动画 | 圆润黏土身体，挤压变形 | 本地实现；官网完整源码未确认 |
+| `collage` | 剪报拼贴 | 撕纸、胶带、剪报拼贴 | huashu 拼贴参考；本地组件 |
+| `one-line` | 一笔画 | 一笔不断的线画出整页 | 本地实现；官网完整源码未确认 |
+| `tech-dark` | 科技深色 | 石墨底、规整线条、一个青绿主色 | 公开 Frametell 原有风格 |
+| `screencast` | 屏幕演示 | 绘制的产品界面与光标，可结合屏幕素材 | 本地实现；官网完整源码未确认 |
+| `isometric` | 等距插画 | 网格地面等距方块 | 本地组件，复用 Anatomy 投影；官网实现未确认 |
+| `blueprint` | 蓝图工程图 | 蓝图白线与尺寸标注 | 本地实现；官网完整源码未确认 |
+| `instrument` | 机械图解 | 投影零件与啮合齿轮 | Anatomy 投影/挤出模块 + 本地齿轮 |
+| `inked` | 手绘物件图解 | 手绘墨线等距物件与注释 | 官方 Colorfigures 几何/受光/墨线适配 |
+| `engraving` | 铜版画博物志 | 旧纸铜版排线 | Lemo 原生 burin 刻线适配 |
+| `midcentury` | 50 年代教育片 | 错版色块与几何讲解员 | Lemo 原生 toon 印刷引擎适配 |
+| `crayon` | 蜡笔绘本 | 蜡笔笔触与涂填 | Lemo 原生蜡笔笔压/涂色适配 |
+| `mascot` | 萌系讲解员 | 圆乎乎的讲解员演示 | 本地实现；官网完整源码未确认 |
+| `chat` | 聊天界面 | 手机聊天界面与消息气泡 | 本地实现；官网完整源码未确认 |
+| `manga` | 日式黑白漫画 | 黑白分镜、网点、速度线 | 本地实现；官网完整源码未确认 |
+| `old-map` | 古地图 | 旧纸海岸线、罗盘、航线 | Natural Earth 数据，经 world-atlas |
+| `metro` | 地铁线路图 | 45/90 度线路与站点 | 本地实现；官网完整源码未确认 |
+| `warm-story` | 暖调叙事插画 | 米色底扁平插画，一个比喻物贯穿 | 公开 Frametell 原有风格 |
+| `whiteboard` | 白板手绘 | 白板马克笔边讲边画 | 公开 Frametell 原有风格 |
+| `chalkboard` | 黑板 | 深绿黑板粉笔推导 | 公开 Frametell 原有风格 |
+| `study` | 安静书房 | 暖纸墨线淡彩，物体旁注释 | 公开 Frametell 原有风格 |
+| `editorial` | 知识杂志 | 导演按主题与视觉偏好每片单独设计配色、字体、线条 | 本分支实现，每片设计外观 |
 
 
 ## 加一套新风格

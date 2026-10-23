@@ -1,8 +1,6 @@
-/* Broadsheet */
-:root { --ink: #990f3d; --soft: #bc5c76; --muted: #d4929e; --band-color: rgba(255,255,255,0.92); --latin: Georgia, 'Times New Roman', serif; }
-#frame { background: #fff1e5; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #fff1e5 0%, #fff1e5F0 55%, transparent 100%); }
-
-.subs span { color: #990f3d; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Broadsheet; palette names retain their literal colour meaning. */
+:root { --ink: #262A33; --soft: #5e5e61; --muted: #8c8887; --hand: Georgia, 'LXGW WenKai', serif; --latin: Georgia, 'LXGW WenKai', serif; }
+#frame { background: #FFF1E5; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #FFF1E5, #FFF1E5EE 55%, transparent); }
+.subs span { color: #262A33; background: #FFF1E5F2; border-radius: 0; box-shadow: none; }

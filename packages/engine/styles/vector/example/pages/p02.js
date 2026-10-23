@@ -1,17 +1,7 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'blue' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  for (const [x,d,i] of [[360,90,0],[880,220,1],[1400,380,2]]) {
-    P.ellipse(x, 560, d*1.7, d*0.55, { at: -1, color: 'faint', sw: 2 });
-    P.circle(x, 560, d, { at: P.c(1)+i*0.45, color: i===1?'blue':'ink' });
-  }
-  P.arrow(470, 720, 770, 720, { at: P.c(2), color: 'orange' });
-  P.arrow(1000, 720, 1290, 720, { at: P.c(2,0.4), color: 'orange' });
-  P.text('十倍', { x: 600, y: 790, w: 160, align:'c', size: 34, color:'orange', at: P.c(2), cps: 4 });
-  P.text('十倍', { x: 1140, y: 790, w: 160, align:'c', size: 34, color:'orange', at: P.c(2,0.4), cps: 4 });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');N.U.setStage(host.width,host.height);
+    return t=>{c.fillStyle='#120a3c';c.fillRect(0,0,1920,1080);N.TY.rise(c,'SCALE',380,430,Math.min(1,.2+t/2),{size:190,fam:'sans-serif',align:'left',color:'#32baee'});N.PAINT.roughPath(c,[[450,720],[770,610],[1160,500],[1510,270]],{amp:0,seed:8});c.strokeStyle='#ffa62b';c.lineWidth=22;c.stroke();};
+  });
 });

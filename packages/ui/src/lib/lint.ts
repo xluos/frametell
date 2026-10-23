@@ -22,6 +22,7 @@ const sayZh: Partial<Record<Lint['kind'], Words>> = {
   'subtitle-band': (d) => `文字${q(d.text)}压到了字幕的位置`,
   'small-text': (d) => `字太小：${q(d.text)}只有 ${d.px} 像素，至少要 ${d.min}`,
   overlap: (d) => `文字重叠：${q(d.a)}和${q(d.b)}叠在了一起`,
+  alignment: (d) => `文字${q(d.text)}与${d.mark === 'underline' ? '下划线' : '包围圈'}没有对齐：横向偏移 ${d.dx}、纵向偏移 ${d.dy} 像素`,
   palette: (d) => `用了这个风格没有的颜色${q(d.name)}`,
   runtime: () => '这一页的代码出错了',
   api: () => '这一页的代码出错了',
@@ -31,7 +32,7 @@ const NOT_MADE = { zh: '这次没有改上：页面和改之前一样', en: 'The
 /** one issue as the person reads it, in the panel's language; undefined for what is not theirs to read */
 export function issueText(issue: PageIssue): string | undefined {
   const zh = getLocale() === 'zh';
-  if (issue.from === 'run') return issue.kind === 'not-made' ? NOT_MADE[zh ? 'zh' : 'en'] : undefined;
+  if (issue.from === 'run') return issue.kind === 'not-reviewed' ? (zh ? '审图未完成，点继续重试检查' : 'Visual review incomplete; continue to retry the checks') : issue.kind === 'not-made' ? NOT_MADE[zh ? 'zh' : 'en'] : undefined;
   if (issue.from !== 'lint') return undefined;
   if (!zh) return `${issue.at}s: ${issue.msg}`;
   const say = sayZh[issue.kind];

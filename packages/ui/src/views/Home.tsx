@@ -65,7 +65,9 @@ export function Home({ openSettings, prefsStamp }: { openSettings: (section?: st
   const split = advanced ?? savedOwn;
   const pagesId = split ? (pageModel === null ? undefined : pageModel ?? (savedOwn ? savedPages : undefined)) || undefined : undefined;
   const pagesOwn = !!pagesId && pagesId !== modelId;
-  const styleId = style ?? settings.data?.defaults.style ?? 'warm-story';
+  const requestedStyle = style ?? settings.data?.defaults.style ?? 'warm-story';
+  const styleId = styles.data && !styles.data.some(s => s.id === requestedStyle)
+    ? (styles.data.find(s => s.id === 'warm-story')?.id ?? styles.data[0]?.id ?? 'warm-story') : requestedStyle;
   const filmLang = lang ?? locale;
   // only voices that speak the film's language: Volcengine's are Chinese voices (lang 'zh'), so an English film (the
   // default in English) never offers them; ElevenLabs' speak many (no lang). Hosted: only the voices the service can use

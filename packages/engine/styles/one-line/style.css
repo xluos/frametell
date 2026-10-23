@@ -1,8 +1,6 @@
-/* One line */
-:root { --ink: #1c1a17; --soft: #66635e; --muted: #9a9690; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
-#frame { background: #f5f0e7; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #f5f0e7 0%, #f5f0e7F0 55%, transparent 100%); }
-
-.subs span { color: #1c1a17; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* One line; palette names retain their literal colour meaning. */
+:root { --ink: #1C1A17; --soft: #54524d; --muted: #827f79; --hand: 'LXGW WenKai', 'Caveat', cursive; --latin: 'LXGW WenKai', 'Caveat', cursive; }
+#frame { background: #F5F0E7; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #F5F0E7, #F5F0E7EE 55%, transparent); }
+.subs span { color: #1C1A17; background: #F5F0E7F2; border-radius: 0; box-shadow: none; }

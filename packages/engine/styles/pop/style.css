@@ -1,8 +1,6 @@
-/* Pop comic */
-:root { --ink: #e3221b; --soft: #e96554; --muted: #ed947c; --band-color: rgba(255,255,255,0.92); --latin: 'Helvetica Neue', Arial, sans-serif; }
-#frame { background: #f4e6c2; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #f4e6c2 0%, #f4e6c2F0 55%, transparent 100%); }
-
-.subs span { color: #e3221b; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Pop comic; palette names retain their literal colour meaning. */
+:root { --ink: #171717; --soft: #504d43; --muted: #7f7867; --hand: 'LXGW WenKai', 'Caveat', cursive; --latin: 'LXGW WenKai', 'Caveat', cursive; }
+#frame { background: #F4E6C2; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #F4E6C2, #F4E6C2EE 55%, transparent); }
+.subs span { color: #171717; background: #F4E6C2F2; border-radius: 0; box-shadow: none; }

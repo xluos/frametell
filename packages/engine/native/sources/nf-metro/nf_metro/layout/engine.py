@@ -1,0 +1,2336 @@
+"""Layout coordinator: combines layer assignment, ordering, and coordinate mapping.
+
+Section-first layout: sections are laid out independently, then placed on a meta-graph.
+"""
+
+from __future__ import annotations
+
+__all__ = [
+    "BackwardFlowError",
+    "FoldThresholdError",
+    "MixedEntryDirectionError",
+    "PhaseInvariantError",
+    "SettledRouteValidationError",
+    "compute_layout",
+    "compute_min_y_spacing",
+]
+
+import warnings
+from collections.abc import Callable
+from copy import deepcopy
+from functools import partial
+from typing import TYPE_CHECKING
+
+from nf_metro.layout.constants import (
+    CURVE_RADIUS,
+    DESCENDER_CLEARANCE,
+    EDGE_TO_BUNDLE_CLEARANCE,
+    FONT_HEIGHT,
+    ICON_STACK_LABEL_CLEARANCE,
+    INTER_ROW_EDGE_CLEARANCE,
+    LABEL_OFFSET,
+    LABEL_OVERLAP_TOL,
+    MIN_Y_SPACING_FLOOR,
+    SAME_COORD_TOLERANCE,
+    SECTION_X_GAP,
+    SECTION_X_PADDING,
+    SECTION_Y_GAP,
+    SECTION_Y_PADDING,
+    X_OFFSET,
+    X_SPACING,
+    Y_OFFSET,
+    Y_SPACING,
+    graph_offset_step,
+)
+from nf_metro.layout.geometry import lanes_run_along_x, perpendicular_port_sides
+
+if TYPE_CHECKING:
+    from nf_metro.render.style import Theme
+from nf_metro.layout.layers import assign_layers
+from nf_metro.layout.ordering import assign_tracks
+from nf_metro.layout.phases._common import (  # noqa: F401
+    _bbox_cols_overlap,
+    _build_section_subgraph,
+    _canvas_width,
+    _classify_multi_station_ys,
+    _classify_section_station_ys,
+    _expand_bbox_for_y,
+    _fan_offsets,
+    _grid_group_section_ids,
+    _grid_rows_top_to_bottom,
+    _max_stations_per_layer,
+    _route_crosses_section_boundary,
+    _row_contiguous_column_groups,
+    _scoped_sections,
+    _section_bundle_lines,
+    _section_trunk_y,
+    _snapshot_placement_refs,
+    _station_marker_bbox,
+    continuation_track_predecessors,
+    first_vertical_leg_x,
+    is_loop_side_branch_station,
+)
+from nf_metro.layout.phases.balancing import (  # noqa: F401
+    _balance_direct_external_feeder_ys,
+    _balance_section_content_around_trunk,
+    _compact_below_trunk_band,
+    _fan_free_content_upward,
+    _fan_source_inputs_upward,
+    _recenter_loop_side_stations,
+    _shift_and_propagate_loop_stations,
+    _shift_linear_consumer_chain,
+    _shift_sparse_loop_stations_to_clear_bundle,
+    _snap_inter_section_port_pairs,
+)
+from nf_metro.layout.phases.bbox import (  # noqa: F401
+    _aggregate_bypass_spans,
+    _fit_bboxes_to_content_top,
+    _level_column_anchor_edges,
+    _lift_would_cause_uturn,
+    _loop_corner_x,
+    _min_section_bbox_top,
+    _predicted_bypass_bottom_in_row,
+    _reserve_perp_port_edge_inset,
+    _reserve_row_gap_for_top_padding,
+    _section_fit_top,
+    _shrink_and_tighten_rows,
+    _shrink_bboxes_to_content_bottom,
+    _snapshot_struct_heights_below_top,
+    _tighten_lower_rows_after_shrink,
+    _top_align_side_entered_vertical_to_feeder,
+    grow_section_bands_to_content,
+    push_lower_rows_after_bbox_grow,
+    refit_empty_section_tops_to_content,
+    refit_tops_after_entry_resnap,
+)
+from nf_metro.layout.phases.canvas import (  # noqa: F401
+    _renumber_sections_by_route,
+    _shift_graph_into_canvas,
+    translate_graph,
+)
+from nf_metro.layout.phases.fan_bundles import (  # noqa: F401
+    _align_symfan_section_to_row_feeder,
+    _apply_half_grid_2branch_symfan,
+    _apply_half_grid_symmetric_diamonds,
+    _carry_full_bundle_continuations,
+    _carry_symmetric_branch_continuations,
+    _center_lr_entry_ports_on_fork,
+    _center_lr_exit_ports_on_join,
+    _convergence_source_ys,
+    _divergence_target_ys,
+    _expand_orphaned_half_grid_stations,
+    _iter_symmetric_diamonds,
+    _recenter_full_bundle_columns,
+    _redistribute_fanout_siblings,
+    _redistribute_full_bundle_columns,
+    _section_symfan_uses_half_grid,
+)
+from nf_metro.layout.phases.grid_snap import (  # noqa: F401
+    _register_half_grid_reconvergence_branches,
+    _snap_all_y_to_grid,
+    _snap_canvas_y_to_grid,
+)
+from nf_metro.layout.phases.guards import (  # noqa: F401
+    _BISECTION_FIRST_VALID,
+    _FLOW_ALIGNED_SIDES,
+    _PASS_C_BISECTION_ORDER,
+    BackwardFlowError,
+    FoldThresholdError,
+    MixedEntryDirectionError,
+    PhaseInvariantError,
+    SettledRouteValidationError,
+    _bisection_should_run,
+    _ensure_routes,
+    _guard_anchors_frozen_during_placement,
+    _guard_bypass_port_no_slot_gaps,
+    _guard_bypass_v_flat_visible,
+    _guard_centered_line_spread_balanced,
+    _guard_converge_siblings_merge_locally,
+    _guard_convergence_shallow_feeder_concentric,
+    _guard_coordinates_finite,
+    _guard_entry_approach_from_port_side,
+    _guard_entry_landing_no_station_backtrack,
+    _guard_entry_port_fed_only_by_ports,
+    _guard_exit_inherits_entry_bundle_order,
+    _guard_explicit_grid_directions,
+    _guard_fan_bundles_coincide_or_separate,
+    _guard_fan_merge_no_partition_crossing,
+    _guard_fanout_junction_resolves_upstream,
+    _guard_fanout_junction_shares_exit_port_y,
+    _guard_fanout_tail_join,
+    _guard_feeder_exits_section_through_side,
+    _guard_file_icon_no_name_label,
+    _guard_flow_exit_anchored_to_carrier,
+    _guard_fold_relocated_flow_ports_face_connections,
+    _guard_independent_components_disjoint,
+    _guard_inter_row_run_clearance,
+    _guard_inter_section_descent_edge_clearance,
+    _guard_inter_section_route_no_backtrack,
+    _guard_inter_section_route_no_full_width_backtrack,
+    _guard_inter_section_routes_in_row_band,
+    _guard_interchange_bar_clears_non_members,
+    _guard_interchange_label_clears_connector,
+    _guard_merge_port_approach_side,
+    _guard_merge_port_outgoing_side_preserved,
+    _guard_multi_section_cell_packed,
+    _guard_no_artefactual_counter_flow,
+    _guard_no_coincident_station_coords,
+    _guard_no_diagonal_strikes_horizontal_label,
+    _guard_no_distinct_line_fanout_crossing,
+    _guard_no_dogleg_crosses_exempt_trunk,
+    _guard_no_label_overlap,
+    _guard_no_line_crosses_file_icon,
+    _guard_no_line_crosses_non_consumer,
+    _guard_no_line_strikes_label,
+    _guard_no_mixed_entry_directions,
+    _guard_no_negative_grid_columns,
+    _guard_no_opposing_line_overlap,
+    _guard_no_route_through_section,
+    _guard_no_same_row_backward_feed,
+    _guard_no_split_same_line_fanout_descents,
+    _guard_no_stacked_elbow_graze,
+    _guard_no_station_overlap,
+    _guard_no_wrapped_label_trunk_strike,
+    _guard_off_track_clear_of_anchor,
+    _guard_off_track_consumer_on_trunk,
+    _guard_off_track_input_column_stack,
+    _guard_off_track_not_hub,
+    _guard_off_track_output_clears_non_producer,
+    _guard_partial_branch_offset_gaps,
+    _guard_partial_trunk_descent_seated,
+    _guard_perp_entry_boundary_consistent,
+    _guard_perp_entry_feed_not_collinear,
+    _guard_perp_exit_over_leadin_no_overdip,
+    _guard_ports_on_boundaries,
+    _guard_post_convergence_trunk_continues,
+    _guard_rail_above_label_band,
+    _guard_rail_connector_ports_no_stub,
+    _guard_rail_one_station_per_column,
+    _guard_rail_stations_seat_on_rails,
+    _guard_right_entry_corridor_descent_no_jog,
+    _guard_right_entry_drop_in_when_clear,
+    _guard_routes_enter_sections_at_ports,
+    _guard_row_gaps,
+    _guard_row_trunk_cy_consistent,
+    _guard_section_bboxes_positive,
+    _guard_section_top_padding,
+    _guard_serpentine_no_backtrack,
+    _guard_side_entered_vertical_top_not_below_feeder,
+    _guard_single_trunk_off_track_step,
+    _guard_station_x_column_drift,
+    _guard_stations_in_sections,
+    _guard_symfan_entry_port_on_feeder_trunk,
+    _guard_symmetric_diamond_branches_half_pitch,
+    _guard_symmetric_diamond_branches_straddle_trunk,
+    _guard_tall_anchor_stack_well_formed,
+    _guard_tb_exit_corner_column_order,
+    _guard_tb_top_entry_drop_hugs_top,
+    _guard_terminus_icons_within_bbox,
+    _guard_topmost_row_top_entry_hugs_section,
+    _guard_trunk_bands_crossing_optimal,
+    _guard_trunk_continuation_drops_straight,
+    _guard_wrap_exit_anchored_to_carrier,
+    _inter_section_backtrack_legs,
+    _port_anchor_snapshot,
+    _route_exit_side,
+    _run_pass_c_guards,
+    _section_lacks_flow_aligned_port,
+    inter_section_route_backtrack_legs,
+    iter_line_label_strikes,
+    run_validate_guards,
+)
+from nf_metro.layout.phases.junctions import (  # noqa: F401
+    _junction_incoming_line_count,
+    _junction_outgoing_line_count,
+    _position_junctions,
+    _position_merge_junction,
+    _required_junction_margin,
+    _resolve_source_section_id,
+    _resolve_source_xy,
+)
+from nf_metro.layout.phases.off_track import (  # noqa: F401
+    _align_phantom_pass_throughs,
+    _bump_off_track_clear_of_trunks,
+    _compute_fork_join_gaps,
+    _insert_phantom_pass_throughs,
+    _lift_off_track_stations,
+    _line_crossed_file_icon_sinks,
+    _off_track_anchor_of,
+    _off_track_groups,
+    _off_track_output_below,
+    _place_off_track_relative_to_anchors,
+    _reanchor_off_track_to_consumer,
+)
+from nf_metro.layout.phases.planned_fans import (  # noqa: F401
+    _apply_planned_fan_geometry,
+    _apply_planned_fan_port_geometry,
+    _fit_planned_fan_bboxes,
+    _snapshot_planned_fan_centrelines,
+    planned_fan_layout_section_ids,
+)
+from nf_metro.layout.phases.ports import (  # noqa: F401
+    _align_entry_ports,
+    _align_exit_ports,
+    _align_lr_entry_port,
+    _align_lr_exit_port,
+    _align_ports_to_downstream,
+    _align_tb_entry_port,
+    _align_tb_section_bbox_bottoms,
+    _clamp_tb_entry_port,
+    _nudge_port_from_stations,
+    _propagate_through_junctions,
+    _push_ports_from_termini,
+    _push_termini_from_port,
+    _realign_fold_lr_exit_ports,
+    _reconcile_flow_exit_carrier_anchors,
+    _resolve_downstream_entry_y,
+    _resolve_tb_exit_y,
+    _set_port_x,
+    _set_port_y,
+    _snap_grid_group_entry_ports,
+    _snap_grid_group_exit_ports,
+    _snap_sole_layer_stations_to_ports,
+    _space_ports_from_termini,
+)
+from nf_metro.layout.phases.row_align import (  # noqa: F401
+    _align_row_trunk_ys,
+    _align_row_y_grids,
+    _compact_row_content_to_bbox_top,
+    _distribute_stacked_rows_in_rowspan_band,
+    _recompute_grid_group_bboxes,
+    _reserve_side_entry_carrier_clearance,
+    _top_align_packed_row_bboxes,
+    _top_align_row_bboxes_only,
+    _top_align_row_sections,
+)
+from nf_metro.layout.phases.single_section import (  # noqa: F401
+    _adjust_lr_entry_inset,
+    _adjust_lr_exit_gap,
+    _adjust_lr_label_clearance,
+    _adjust_tb_entry_shifts,
+    _adjust_tb_labels,
+    _adjust_terminus_icon_clearance,
+    _align_terminus_to_upstream,
+    _enforce_min_extent,
+    _has_horizontal_predecessor_section,
+    _layout_single_section,
+    _mirror_primary,
+    _multiline_label_padding,
+    _multiline_track_spacing,
+    _normalize_min,
+    _resolve_station_collisions,
+    _shift_lr_perp_entry_stations,
+    _terminus_icon_clearance,
+    _terminus_icon_clearance_vertical,
+    _terminus_icons_extend_forward,
+    _terminus_y_overhang,
+)
+from nf_metro.layout.phases.snapshots import (
+    capture_phase_snapshot,
+    phase_snapshots_enabled,
+)
+from nf_metro.layout.phases.spacing import (  # noqa: F401
+    _MAX_SPREAD_ITERS,
+    _SPREAD_SLACK,
+    _bypass_label_obstacles,
+    _label_clearance_issues,
+    _reflowed_and_residual_overlaps,
+    _reflowed_label_station_ids,
+    _residual_label_overlaps,
+    _spread_bump,
+    _struck_stations_and_collinear,
+    _warn_if_pinned_x_spacing_crowds_labels,
+)
+from nf_metro.layout.routing.context import is_far_side_around_below_left_entry
+from nf_metro.parser.model import (
+    LayoutGeometryWarning,
+    LineSpread,
+    MetroGraph,
+    Section,
+    is_bypass_v,
+)
+from nf_metro.parser.validate import (
+    CyclicGraphError,
+    find_cycle,
+    find_section_cycle,
+    format_cycle_error,
+    format_section_cycle_error,
+    require_resolved_edge_endpoints,
+    require_resolved_port_sections,
+)
+
+# ---------------------------------------------------------------------------
+# Stage-boundary guards
+# ---------------------------------------------------------------------------
+
+_VALIDATE_DEFAULT = False
+"""Set to True to enable stage-boundary invariant checks.
+
+Controlled by the ``validate`` parameter on ``compute_layout``.
+Tests pass ``validate=True`` to catch cross-phase corruption that would
+otherwise only surface as subtle visual defects.
+"""
+
+
+def compute_min_y_spacing(
+    graph: MetroGraph, floor: float = MIN_Y_SPACING_FLOOR
+) -> float:
+    """Return the minimum global ``y_spacing`` the graph's content needs.
+
+    Scans every LR/RL section and asks, for any pair of stations that
+    could land in vertically-adjacent grid slots in the same column:
+    what centre-to-centre pitch is needed for their labels / file icons
+    not to collide?
+
+    Required pitch for two stacked elements is
+    ``upper.below_extent + lower.above_extent +
+    ICON_STACK_LABEL_CLEARANCE``.  A terminus icon's two extents come from
+    :func:`~nf_metro.layout.phases.single_section.terminus_cross_extents`
+    (icon body, plus a stacked back page above and a caption below); a
+    labelled station's is ``LABEL_OFFSET + FONT_HEIGHT +
+    DESCENDER_CLEARANCE``.  We take the worst case across all candidate
+    pairs in every LR/RL section, then clamp to ``floor`` so a label-light
+    graph stays at the default pitch.
+
+    Label-only stations alternate above/below within a column at the
+    default pitch, so they're not the binding constraint on their own.
+    File icons can't alternate (the caption's placement under the icon is
+    fixed), so the widening fires when icons enter the mix.  The icon body
+    alone binds once ``font_scale`` grows it past the default pitch, which
+    is why an uncaptioned icon counts here too.
+
+    The result is applied uniformly to the whole render -- the grid
+    stays global, no per-section overrides.
+    """
+    from nf_metro.layout.pass_metrics import active_font_scale
+    from nf_metro.layout.phases.single_section import terminus_cross_extents
+
+    scale = active_font_scale()
+    label_extent = LABEL_OFFSET + FONT_HEIGHT * scale + DESCENDER_CLEARANCE
+    clearance = ICON_STACK_LABEL_CLEARANCE
+
+    required = floor
+    if not graph.sections:
+        return required
+
+    for section in graph.sections.values():
+        if section.direction not in ("LR", "RL"):
+            continue
+        icon_extents: list[tuple[float, float]] = []
+        caption_belows: list[float] = []
+        labeled = 0
+        for sid in section.station_ids:
+            st = graph.stations.get(sid)
+            if st is None or st.is_port or st.is_hidden:
+                continue
+            if st.is_terminus:
+                above, below = terminus_cross_extents(st)
+                icon_extents.append((above, below))
+                if st.terminus_caption_line_count:
+                    caption_belows.append(below)
+            elif st.label:
+                labeled += 1
+        if len(icon_extents) >= 2:
+            # Worst-case stack: the deepest downward reach over the tallest
+            # upward one, since either icon may be the upper of the pair.
+            required = max(
+                required,
+                max(below for _, below in icon_extents)
+                + max(above for above, _ in icon_extents)
+                + clearance,
+            )
+        if caption_belows and labeled:
+            # Only a *captioned* icon binds against a label: its caption is
+            # pinned under the icon, whereas a bare station label alternates
+            # above/below within the column to dodge the clash by itself.
+            required = max(required, max(caption_belows) + label_extent + clearance)
+
+    return required
+
+
+def _far_side_wrap_left_clearances(graph: MetroGraph) -> dict[str, float]:
+    """Left clearance each section needs for an around-below far-side LEFT entry.
+
+    Such a section is fed by a bundle that rises in a channel a bundle-width plus
+    a curve radius left of its box (see
+    ``_route_left_exit_around_below_left_entry``).  Reserving that width as extra
+    left extent lets the Stage 1.5 overshoot adjustment keep the wrap clear of
+    the canvas edge.  ``EDGE_TO_BUNDLE_CLEARANCE`` bounds the ascent channel's own
+    edge clearance, so the sum is a safe upper bound on the wrap's reach.
+    """
+    clearances: dict[str, float] = {}
+    for port in graph.ports.values():
+        if not is_far_side_around_below_left_entry(graph, port):
+            continue
+        n = len({edge.line_id for edge in graph.edges_to(port.id)})
+        offset_step = graph_offset_step(graph)
+        clearance = (
+            (n - 1) * offset_step
+            + CURVE_RADIUS
+            + offset_step
+            + EDGE_TO_BUNDLE_CLEARANCE
+        )
+        clearances[port.section_id] = max(
+            clearances.get(port.section_id, 0.0), clearance
+        )
+    return clearances
+
+
+def compute_layout(
+    graph: MetroGraph,
+    x_spacing: float | None = None,
+    y_spacing: float | None = None,
+    x_offset: float = X_OFFSET,
+    y_offset: float = Y_OFFSET,
+    section_x_padding: float = SECTION_X_PADDING,
+    section_y_padding: float = SECTION_Y_PADDING,
+    section_x_gap: float | None = None,
+    section_y_gap: float | None = None,
+    validate: bool = _VALIDATE_DEFAULT,
+    validation_theme: Theme | None = None,
+) -> None:
+    """Compute layout positions for all stations in the graph.
+
+    The spacing and section-gap arguments default to ``None``, meaning "read
+    the graph's field" (``graph.x_spacing`` etc., set by a ``%%metro``
+    directive).  An explicit value passed here overrides that field, so the
+    cascade is CLI flag > directive > auto/default.
+
+    When ``y_spacing`` resolves to ``None`` it is derived from the graph's
+    content via ``compute_min_y_spacing`` so renders adapt to captioned icons
+    and labelled stations automatically.
+
+    If an explicit value is below the minimum the content needs, a
+    ``UserWarning`` is emitted: the render is honoured at the requested
+    pitch, but labels and captioned file-icons may collide.  Omit
+    ``y_spacing`` to let the engine pick a safe value.  An explicit
+    ``x_spacing`` that leaves station labels colliding warns the same way,
+    measured on the settled layout rather than predicted from the content.
+
+    When *validate* is True, stage-boundary invariant checks run after
+    key phases.  Violations raise ``PhaseInvariantError`` instead of
+    silently producing broken layouts.
+    """
+    witness = find_cycle(graph)
+    if witness is not None:
+        raise CyclicGraphError(format_cycle_error(witness))
+
+    section_witness = find_section_cycle(graph)
+    if section_witness is not None:
+        raise CyclicGraphError(format_section_cycle_error(section_witness))
+
+    require_resolved_edge_endpoints(graph)
+    require_resolved_port_sections(graph)
+    graph._final_route_guards_deferred = False
+
+    if x_spacing is None:
+        x_spacing = graph.x_spacing
+    if y_spacing is None:
+        y_spacing = graph.y_spacing
+    if section_x_gap is None:
+        section_x_gap = (
+            graph.section_x_gap if graph.section_x_gap is not None else SECTION_X_GAP
+        )
+    if section_y_gap is None:
+        section_y_gap = (
+            graph.section_y_gap if graph.section_y_gap is not None else SECTION_Y_GAP
+        )
+
+    # Read the phase-snapshot enable flag once (issue #363) and stash it on
+    # the graph so per-stage call sites can snapshot without signature churn.
+    # Off by default: when unset, each _snap call is a single attribute read.
+    graph._phase_snapshots_enabled = phase_snapshots_enabled()
+
+    from nf_metro.layout.pass_metrics import font_scale_context, stroke_scale_context
+
+    def _layout_pass(validate_pass: bool) -> None:
+        _compute_layout_scaled(
+            graph,
+            x_spacing=x_spacing,
+            y_spacing=y_spacing,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+            section_x_gap=section_x_gap,
+            section_y_gap=section_y_gap,
+            validate=validate_pass,
+        )
+
+    with (
+        font_scale_context(graph.font_scale),
+        stroke_scale_context(graph.stroke_scale),
+    ):
+        # Topology-blind bypass insertion (parse time) can miss a line drawn
+        # through a marker it doesn't consume; the geometric pass re-lays out
+        # with bypass helpers for any such crossing it can cleanly fix.  The
+        # pre-bypass passes defer the final-geometry guards (the breeze-through
+        # guard and the closing "after final" checkpoint), so a crossing the
+        # re-lay would move clear of is collected rather than aborting on a
+        # transient layout state; the settled geometry is validated below, so a
+        # validate=True render asserts the exact geometry it draws.
+        from nf_metro.layout.geometric_bypass import apply_geometric_bypass
+
+        graph._defer_final_guards = True
+        graph._after_final_deferred = False
+        _layout_pass(validate)
+        changed = apply_geometric_bypass(graph, _layout_pass)
+        graph._defer_final_guards = False
+
+        # Bypass helpers re-feed the bypassed section's height into downstream
+        # placement, which lags by one pass, so a kept fix needs one more settling
+        # pass to reach its fixed point; that pass runs the deferred "after final"
+        # checkpoint on the settled geometry.  When the bypass changed nothing the
+        # first pass already holds the final geometry, so the deferred checkpoint
+        # runs against it directly -- but only when the first pass actually
+        # reached it (``_after_final_deferred``), so layout paths that never
+        # reach the checkpoint (rail, flat) are exempt.
+        if changed:
+            _layout_pass(validate)
+        elif validate and graph._after_final_deferred:
+            _run_after_final_checkpoint(graph, section_y_gap, section_y_padding)
+
+        if validate and graph._final_route_guards_deferred:
+            from nf_metro.layout.fan_plans import FanRouteInvariantError
+            from nf_metro.layout.routing.convergences import ConvergenceInvariantError
+            from nf_metro.layout.routing.exit_turns import ExitTurnInvariantError
+            from nf_metro.layout.routing.invariants import CurveInvariantError
+            from nf_metro.render.section_header import SectionHeaderClashError
+            from nf_metro.render.svg import build_render_plan
+            from nf_metro.themes import resolve_theme
+
+            try:
+                build_render_plan(graph, validation_theme or resolve_theme(None, graph))
+            except (
+                CurveInvariantError,
+                FanRouteInvariantError,
+                ConvergenceInvariantError,
+                ExitTurnInvariantError,
+                SectionHeaderClashError,
+            ) as exc:
+                raise SettledRouteValidationError(str(exc)) from exc
+            finally:
+                graph._final_route_guards_deferred = False
+
+        # Must run after every layout/re-layout pass has settled: it only marks
+        # half-grid station ids for post-layout invariants. Moving it earlier lets
+        # the mark feed a subsequent pass's placement decisions (Stage 6.4's grid
+        # snap, Stage 6.18's orphan expansion), corrupting their geometry.
+        _register_half_grid_reconvergence_branches(graph)
+
+
+def _compute_layout_scaled(
+    graph: MetroGraph,
+    *,
+    x_spacing: float | None,
+    y_spacing: float | None,
+    x_offset: float,
+    y_offset: float,
+    section_x_padding: float,
+    section_y_padding: float,
+    section_x_gap: float,
+    section_y_gap: float,
+    validate: bool,
+) -> None:
+    """Layout body, run under the graph's active font-scale context."""
+
+    # Diagonal labels are a horizontal-trunk feature: a TB section places its
+    # labels beside vertical pills, where the same tilt doesn't read, so an
+    # angled graph that also has a TB section would mix tilted and horizontal
+    # labels on one map.  Decline the angle outright in that case (warn and
+    # fall back to horizontal everywhere) rather than ship a mixed-orientation
+    # map.  Mutating graph.label_angle makes both layout and the renderer agree.
+    if graph.label_angle and any(
+        sec.direction == "TB" for sec in graph.sections.values()
+    ):
+        warnings.warn(
+            f"label_angle={graph.label_angle!r} ignored: diagonal labels are "
+            f"not applied to a graph containing a TB section (the whole map "
+            f"would need to tilt to stay consistent). Labels stay horizontal.",
+            UserWarning,
+            stacklevel=2,
+        )
+        graph.label_angle = 0.0
+
+    # A diagonal label angle drives one graph-wide column pitch shared by every
+    # section (rail and normal alike), so spacing is a property of the whole
+    # render, not of any one section.  Used as the default x_spacing when the
+    # caller didn't pin one.
+    from nf_metro.layout.labels import diagonal_label_pitch
+
+    default_x_spacing = diagonal_label_pitch(graph, X_SPACING)
+
+    # Opt-in rail mode runs a dedicated, self-contained layout pipeline and
+    # returns early so the normal phase pipeline below is never touched when
+    # rail mode is off (default).  See layout/rail_mode.py.
+    if graph.line_spread is LineSpread.RAILS:
+        from nf_metro.layout.rail_mode import compute_rail_layout
+
+        rail_y = y_spacing if y_spacing is not None else compute_min_y_spacing(graph)
+        rail_x = x_spacing if x_spacing is not None else default_x_spacing
+        compute_rail_layout(
+            graph,
+            x_spacing=rail_x,
+            y_spacing=rail_y,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+            section_y_gap=section_y_gap,
+        )
+        return
+
+    auto_x = x_spacing is None
+    auto_y = y_spacing is None
+    if y_spacing is None:
+        # The base content pitch before the spread loop widens it for
+        # diagonal labels.  A single-trunk section's off-track lift step
+        # stays at this base so a widened pitch doesn't strand the icon far
+        # above the trunk (issue #580).  Only recorded when y_spacing is
+        # auto-resolved; an explicit pin is honoured verbatim.
+        y_spacing = compute_min_y_spacing(graph)
+        graph._base_y_spacing = y_spacing
+    else:
+        min_required = compute_min_y_spacing(graph)
+        if y_spacing < min_required - 1e-6:
+            warnings.warn(
+                f"explicit y_spacing={y_spacing!r} is below the minimum "
+                f"({min_required:.1f}) this graph's content requires; "
+                f"labels and captioned file-icons may collide. "
+                f"Omit --y-spacing to let the engine pick a safe value.",
+                LayoutGeometryWarning,
+                stacklevel=2,
+            )
+    if x_spacing is None:
+        x_spacing = default_x_spacing
+
+    # Optionally reorder lines by section span before layout.
+    # Must happen here (on the full graph) before section subgraphs are
+    # built, since subgraphs share graph.lines via reference.  Done once;
+    # the reorder is order-stable across the spread loop below.
+    if graph.line_order == "span" and graph.lines:
+        from nf_metro.layout.ordering import _reorder_by_span
+
+        new_order = _reorder_by_span(graph, list(graph.lines.keys()))
+        graph.lines = {lid: graph.lines[lid] for lid in new_order}
+
+    # Spread loop: lay out, then if labels still collide at this pitch
+    # (after wrapping has done what it can), widen the auto-resolved
+    # spacing and lay out again.  A clean layout clears on the first pass
+    # so nothing is widened; only crowded wide-label graphs iterate.  When
+    # the caller pins both spacings explicitly there is nothing to widen,
+    # so a single pass runs.
+    max_iters = _MAX_SPREAD_ITERS if (auto_x or auto_y) else 1
+    for attempt in range(max_iters):
+        # Each pass may widen x_spacing to clear label overlaps; keep the
+        # recorded resolve in step so placement that reads it (off-track spurs)
+        # tracks the same widened pitch the fan branches are placed on.
+        graph._resolved_x_spacing = x_spacing
+        _layout_once(
+            graph,
+            x_spacing=x_spacing,
+            y_spacing=y_spacing,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+            section_x_gap=section_x_gap,
+            section_y_gap=section_y_gap,
+            validate=validate,
+        )
+        if attempt == max_iters - 1:
+            break
+        residual = _residual_label_overlaps(graph)
+        if not residual:
+            break
+        new_x, new_y = _spread_bump(
+            graph, residual, x_spacing, y_spacing, auto_x, auto_y
+        )
+        if new_x <= x_spacing + 1e-6 and new_y <= y_spacing + 1e-6:
+            break  # can't widen the binding axis (e.g. pinned) -- give up
+        x_spacing, y_spacing = new_x, new_y
+
+    y_spacing = _settle_row_pitch_against_reflow(
+        graph,
+        x_spacing=x_spacing,
+        y_spacing=y_spacing,
+        auto_y=auto_y,
+        x_offset=x_offset,
+        y_offset=y_offset,
+        section_x_padding=section_x_padding,
+        section_y_padding=section_y_padding,
+        section_x_gap=section_x_gap,
+        section_y_gap=section_y_gap,
+        validate=validate,
+    )
+    graph._resolved_y_spacing = y_spacing
+
+    # Assure file-icon leaf sinks off the trunk by construction: a leaf icon
+    # the laid-out routes rake a line across is taken off-track and the layout
+    # re-run once, so the off-track machinery lifts it clear of the passing
+    # line.  Keyed on an observed crossing (not on icon presence), so an
+    # end-of-chain terminus that already sits clear is never disturbed.  Runs
+    # before the strike-clearance loop so that loop probes the settled off-track
+    # geometry and can clear an output diagonal that rakes its producer's label.
+    crossed_sinks = _line_crossed_file_icon_sinks(graph)
+    if crossed_sinks:
+        for sid in crossed_sinks:
+            graph.stations[sid].off_track = True
+        _layout_once(
+            graph,
+            x_spacing=x_spacing,
+            y_spacing=y_spacing,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+            section_x_gap=section_x_gap,
+            section_y_gap=section_y_gap,
+            validate=validate,
+        )
+
+    _apply_label_strike_clearance(
+        graph,
+        x_spacing=x_spacing,
+        y_spacing=y_spacing,
+        x_offset=x_offset,
+        y_offset=y_offset,
+        section_x_padding=section_x_padding,
+        section_y_padding=section_y_padding,
+        section_x_gap=section_x_gap,
+        section_y_gap=section_y_gap,
+        validate=validate,
+    )
+
+    _retrofit_section_rails_phase(
+        graph,
+        x_spacing=x_spacing,
+        y_spacing=y_spacing,
+        section_x_padding=section_x_padding,
+        section_y_padding=section_y_padding,
+    )
+
+    # Record the bypassed-station label box behind each bypass V so the router
+    # can seat the V's flat-run corners clear of the label.  Read on the render
+    # path, so it is populated independent of ``validate``; computed once the
+    # layout has fully settled so the box matches what the renderer draws.
+    graph.bypass_label_obstacles = _bypass_label_obstacles(graph)
+
+    if not auto_x:
+        _warn_if_pinned_x_spacing_crowds_labels(graph, x_spacing, y_spacing)
+
+    _snap(graph, "final")
+
+    if validate:
+        _guard_no_label_overlap(graph, "final")
+        _guard_no_diagonal_strikes_horizontal_label(graph, "final")
+        _guard_no_line_strikes_label(graph, "final")
+        _guard_bypass_v_flat_visible(graph, "final")
+        _guard_no_wrapped_label_trunk_strike(graph, "final")
+        _guard_file_icon_no_name_label(graph, "final")
+        _guard_no_line_crosses_file_icon(graph, "final")
+        _guard_centered_line_spread_balanced(graph, "final")
+        _guard_rail_above_label_band(graph, "final")
+        _guard_rail_stations_seat_on_rails(graph, "final")
+        _guard_rail_one_station_per_column(graph, "final")
+        _guard_single_trunk_off_track_step(graph, "final")
+        _guard_off_track_consumer_on_trunk(graph, "final")
+        _guard_symfan_entry_port_on_feeder_trunk(graph, "final")
+        _guard_off_track_input_column_stack(graph, "final")
+        _guard_off_track_not_hub(graph, "final")
+        _guard_interchange_bar_clears_non_members(graph, "final")
+        _guard_interchange_label_clears_connector(graph, "final")
+        _guard_tb_top_entry_drop_hugs_top(graph, "final")
+        _guard_side_entered_vertical_top_not_below_feeder(graph, "final")
+        _guard_symmetric_diamond_branches_straddle_trunk(graph, "final")
+        _guard_symmetric_diamond_branches_half_pitch(graph, "final")
+        _guard_converge_siblings_merge_locally(graph, "final")
+
+
+def _bypass_label_rakes(graph: MetroGraph) -> set[str]:
+    # Stations whose name label a bypass-V leg crosses, per the guard's strike
+    # definition: it counts a leg's crossing of the station the V routes around
+    # but exempts the leg's own diverging/merging endpoint, isolating the
+    # bypassed-middle rake the gap lever relocates.
+    return {
+        s.station_id
+        for s in iter_line_label_strikes(graph)
+        if is_bypass_v(s.src) or is_bypass_v(s.tgt)
+    }
+
+
+def _clear_bypass_label_rakes(
+    graph: MetroGraph,
+    *,
+    issues: Callable[[], tuple[set[str], bool, set[tuple[str, str, int]]]],
+    adjust: Callable[[tuple[str, str, int], int], None],
+    lever_value: Callable[[tuple[str, str, int]], int],
+    growable_target: Callable[[str], tuple[Section, int] | None],
+    relay: Callable[..., None],
+    reseat: Callable[[], None],
+) -> None:
+    """Push a bypassed node out by whole grid columns to clear a wide-label rake.
+
+    Separate from the fan/convergence loop in ``_apply_label_strike_clearance``
+    because it grows the gap before the *bypassed* node's layer (lengthening the
+    V's leg) rather than a struck station's own runway, and because its probe
+    must read the router's flat-run seating (obstacle boxes kept current by
+    ``reseat``) so it fires only for a rake the router could not seat clear.  The
+    seated boxes are local: the entry value is restored before returning, so the
+    fan/convergence loop reasons about unseated routes.
+    """
+    if not any(
+        v.is_hidden and v.bypasses_station_id is not None
+        for v in graph.stations.values()
+    ):
+        return
+    entry_obstacles = dict(graph.bypass_label_obstacles)
+    graph.bypass_label_obstacles = _bypass_label_obstacles(graph)
+    rake_levers = {
+        ("gap", target[0].id, target[1])
+        for sid in _bypass_label_rakes(graph)
+        if (target := growable_target(sid)) is not None
+    }
+    struck_pre, collinear_pre, _ = issues() if rake_levers else (set(), False, ())
+    if not rake_levers or collinear_pre:
+        graph.bypass_label_obstacles = entry_obstacles
+        return
+    for _ in range(_MAX_SPREAD_ITERS):
+        for lever in rake_levers:
+            adjust(lever, 1)
+        reseat()
+        struck_now, collinear, _ = issues()
+        if collinear:
+            for lever in rake_levers:
+                adjust(lever, -1)
+            break
+        # Done once no rake remains and the shift added no new strike (struck_now
+        # is a subset of the pre-shift strikes); a residual the gaps cannot clear
+        # rolls back wholesale for the guard backstop.
+        if not _bypass_label_rakes(graph) and struck_now <= struck_pre:
+            break
+    else:
+        for lever in rake_levers:
+            while lever_value(lever) > 0:
+                adjust(lever, -1)
+    # The grow steps re-laid against seated boxes; settle the chosen levers
+    # against the restored (unseated) boxes the next loop expects.
+    graph.bypass_label_obstacles = entry_obstacles
+    relay()
+
+
+def _adjust_strike_lever(
+    graph: MetroGraph, lever: tuple[str, str, int | str], delta: int
+) -> None:
+    """Add ``delta`` to the section field a strike-clearance lever addresses.
+
+    Levers are ``(kind, section_id, key)``: ``entry``/``exit`` runway columns,
+    a per-producer ``off_lead`` (key is the producer station id), or a
+    per-layer ``gap`` (key is the layer index).  A count that drops to zero is
+    removed from its dict so an ungrown lever leaves no residue.
+    """
+    kind, sid, key = lever
+    sec = graph.sections[sid]
+    if kind == "entry":
+        sec.label_strike_entry_cols += delta
+    elif kind == "exit":
+        sec.label_strike_exit_cols += delta
+    elif kind == "off_lead":
+        ole = sec.off_track_lead_extra
+        producer_id = str(key)
+        ole[producer_id] = ole.get(producer_id, 0) + delta
+        if ole[producer_id] <= 0:
+            del ole[producer_id]
+    else:
+        layer = int(key)
+        lg = sec.label_strike_layer_gaps
+        lg[layer] = lg.get(layer, 0) + delta
+        if lg[layer] <= 0:
+            del lg[layer]
+
+
+def _strike_lever_value(graph: MetroGraph, lever: tuple[str, str, int | str]) -> int:
+    """Current column count held by a strike-clearance lever.
+
+    See :func:`_adjust_strike_lever` for the lever encoding.
+    """
+    kind, sid, key = lever
+    sec = graph.sections[sid]
+    if kind == "entry":
+        return sec.label_strike_entry_cols
+    if kind == "exit":
+        return sec.label_strike_exit_cols
+    if kind == "off_lead":
+        return sec.off_track_lead_extra.get(str(key), 0)
+    return sec.label_strike_layer_gaps.get(int(key), 0)
+
+
+def _off_track_output_producers(graph: MetroGraph) -> set[str]:
+    """On-track stations that feed an off-track output (a producer-fed sink).
+
+    A struck producer here carries the rake of its own output's diagonal, which
+    the off-track lead lever clears by seating the divergence past the producer's
+    name; the general in-grid runway cannot, since the label moves with the
+    producer.  Anchors resolve through :func:`_off_track_anchor_of` (ports,
+    junctions and cross-section neighbours excluded); an off-track station that
+    also feeds its anchor is an input, not a producer-fed sink.
+    """
+    return {
+        anchor_id
+        for off_id, anchor_id in _off_track_anchor_of(graph).items()
+        if not any(e.target == anchor_id for e in graph.edges_from(off_id))
+    }
+
+
+def _strike_growable_target(
+    graph: MetroGraph, station_id: str
+) -> tuple[Section, int] | None:
+    """The section and layer a strike at *station_id* can grow, if any."""
+    station = graph.stations.get(station_id)
+    if station is None or not station.section_id:
+        return None
+    section = graph.sections.get(station.section_id)
+    if (
+        section is None
+        or lanes_run_along_x(section.direction)
+        or graph.is_rail_section(section.id)
+    ):
+        return None
+    return section, station.layer
+
+
+def _label_strike_levers(
+    graph: MetroGraph,
+    station_id: str,
+    off_track_output_producers: set[str],
+) -> set[tuple[str, str, int | str]]:
+    """Return spacing levers that can relocate a strike at one station."""
+    target = _strike_growable_target(graph, station_id)
+    if target is None:
+        return set()
+    section, layer = target
+    levers: set[tuple[str, str, int | str]] = {
+        ("entry", section.id, 0),
+        ("exit", section.id, 0),
+        ("gap", section.id, layer),
+    }
+    if station_id in off_track_output_producers:
+        levers.add(("off_lead", section.id, station_id))
+    return levers
+
+
+def _settle_row_pitch_against_reflow(
+    graph: MetroGraph,
+    *,
+    x_spacing: float,
+    y_spacing: float,
+    auto_y: bool,
+    x_offset: float,
+    y_offset: float,
+    section_x_padding: float,
+    section_y_padding: float,
+    section_x_gap: float,
+    section_y_gap: float,
+    validate: bool,
+) -> float:
+    """Buy a re-flowed label back onto one line when the row pitch is cheap.
+
+    The spacing search widens only for the crowding wrapping could not clear, so
+    it can settle a hair below the pitch at which a re-flowed label would have
+    stayed on one line: the wrap is taken first and nothing afterwards revisits
+    it.  Re-flowing costs a whole extra line of drawn height and roughly halves
+    the label's width, so it has to earn the pitch it saves.
+
+    Offered only where the search widened past the base content pitch, so what
+    is questioned is an amount already being spent on label crowding.  A wrap
+    that clears everything at the base pitch costs no pitch at all, and pushing
+    past the content minimum purely to unwrap a label would spend room the
+    content never asked for.
+
+    Each round offers one ``LABEL_OVERLAP_TOL`` of extra row pitch -- the
+    intrusion below which the engine does not count label geometry as
+    conflicting at all, so a deficit that small is no real claim on the pitch.
+    A round is kept only when it strictly shrinks the re-flowed set and leaves
+    no residual overlap; the set is finite and falls monotonically, so the
+    search settles.  Any other answer leaves the wrap standing, which is the
+    outcome wherever a re-flow is what spares a much wider pitch.
+
+    Every offer is laid out on a throwaway copy and only the accepted pitch is
+    laid on the caller's graph, so a declined offer leaves nothing behind.  A
+    pass at one pitch does not restore every section's seating when re-laid at
+    another, so measuring an offer on the live graph would move sections in a
+    graph whose answer is "keep the wrap".
+
+    Only the row pitch is offered.  That is the axis
+    :func:`compute_min_y_spacing` already sizes from label extents, whereas the
+    column pitch is fixed structure: widening it to dodge a re-flow is what
+    makes a crowded map sprawl sideways.  A caller-pinned pitch is left alone.
+    """
+    base = graph._base_y_spacing
+    if not auto_y or base is None or y_spacing <= base + 1e-6:
+        return y_spacing
+    reflowed = _reflowed_label_station_ids(graph)
+    if not reflowed:
+        return y_spacing
+
+    def _relay(target: MetroGraph, pitch: float, *, validate_layout: bool) -> None:
+        _layout_once(
+            target,
+            x_spacing=x_spacing,
+            y_spacing=pitch,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+            section_x_gap=section_x_gap,
+            section_y_gap=section_y_gap,
+            validate=validate_layout,
+        )
+
+    settled = y_spacing
+    for _ in range(_MAX_SPREAD_ITERS):
+        offer = settled + LABEL_OVERLAP_TOL
+        trial = deepcopy(graph)
+        try:
+            # An offer is laid unvalidated: it is a question, not a decision.
+            # An offer whose layout raises is declined and ends the search.
+            _relay(trial, offer, validate_layout=False)
+        except Exception:
+            break
+        next_reflowed, residual = _reflowed_and_residual_overlaps(trial)
+        if len(next_reflowed) >= len(reflowed) or residual:
+            break
+        settled, reflowed = offer, next_reflowed
+        if not reflowed:
+            break
+
+    if settled > y_spacing:
+        _relay(graph, settled, validate_layout=validate)
+    return settled
+
+
+def _apply_label_strike_clearance(
+    graph: MetroGraph,
+    *,
+    x_spacing: float,
+    y_spacing: float,
+    x_offset: float,
+    y_offset: float,
+    section_x_padding: float,
+    section_y_padding: float,
+    section_x_gap: float,
+    section_y_gap: float,
+    validate: bool,
+) -> None:
+    """Lengthen flat runs at struck stations so diagonals clear their labels.
+
+    A fan-in/fan-out, convergence, or descent diagonal that rakes a station's
+    name label is cleared by lengthening the flat run at that station by whole
+    grid columns (the pitch stays fixed), seating the transition outside the
+    label.  Grid-quantized levers cover the section's entry-side runway, its
+    exit-side runway, and per-column gaps on either side of the struck station's
+    layer.  Need-driven: only stations the renderer would draw a strike through
+    grow, so a clean layout (every gallery render at its default pitch) is left
+    untouched.  Independent of pinned vs auto pitch: the room is local, not the
+    global pitch, so it applies even when the caller fixed x_spacing.
+
+    A grow step bumps every lever at each struck station (which one relocates a
+    given strike is hard to know in advance), then a minimization pass strips
+    each lever that turns out not to be load-bearing, so the settled layout
+    carries the least extra width that keeps the labels clear.  A step a
+    collinear check rejects, or that fails to reduce the struck count, is rolled
+    back, so the loop never ships a layout worse than it found.
+    """
+
+    def _relay(*, validate_layout: bool = False) -> None:
+        # Growth/shrink steps re-lay unvalidated: an intermediate lever width can
+        # carry a transient strike or overlap that a later column clears.  The
+        # settled layout is re-laid once with ``validate_layout`` so the caller's
+        # stage-boundary checks run on the result the phase ships.
+        _layout_once(
+            graph,
+            x_spacing=x_spacing,
+            y_spacing=y_spacing,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+            section_x_gap=section_x_gap,
+            section_y_gap=section_y_gap,
+            validate=validate_layout,
+        )
+
+    def _reseat() -> None:
+        # Refresh the obstacle boxes after re-laying so the rake probe's routes
+        # carry the router's flat-run seating against the current geometry.
+        _relay()
+        graph.bypass_label_obstacles = _bypass_label_obstacles(graph)
+
+    _growable_target = partial(_strike_growable_target, graph)
+    _adjust = partial(_adjust_strike_lever, graph)
+    _lever_value = partial(_strike_lever_value, graph)
+
+    off_track_output_producers = _off_track_output_producers(graph)
+
+    def _issues() -> tuple[set[str], bool, set[tuple[str, str, int]]]:
+        struck_, collinear_, flat_gaps_ = _label_clearance_issues(graph)
+        flat_levers_ = {("gap", sid, layer) for sid, layer in flat_gaps_}
+        return struck_, collinear_, flat_levers_
+
+    def _levers_for_struck(sid: str) -> set[tuple[str, str, int | str]]:
+        return _label_strike_levers(graph, sid, off_track_output_producers)
+
+    _clear_bypass_label_rakes(
+        graph,
+        issues=_issues,
+        adjust=_adjust,
+        lever_value=_lever_value,
+        growable_target=_growable_target,
+        relay=_relay,
+        reseat=_reseat,
+    )
+
+    struck, _, flat_levers = _issues()
+    count = len(struck) + len(flat_levers)
+    for _ in range(_MAX_SPREAD_ITERS):
+        levers: set[tuple[str, str, int | str]] = set(flat_levers)
+        for sid in struck:
+            levers |= _levers_for_struck(sid)
+        if not levers:
+            break
+        for lever in levers:
+            _adjust(lever, 1)
+        _relay()
+        after, collinear, after_flats = _issues()
+        after_count = len(after) + len(after_flats)
+        if collinear or after_count >= count:
+            for lever in levers:
+                _adjust(lever, -1)
+            _relay()
+            fallback_levers = set(levers)
+            for sid in struck:
+                target = _growable_target(sid)
+                if target is not None:
+                    section, layer = target
+                    fallback_levers.add(("gap", section.id, layer + 1))
+            if fallback_levers == levers:
+                break
+            for lever in fallback_levers:
+                _adjust(lever, 1)
+            _relay()
+            after, collinear, after_flats = _issues()
+            after_count = len(after) + len(after_flats)
+            if collinear or after_count >= count:
+                for lever in fallback_levers:
+                    _adjust(lever, -1)
+                _relay()
+                break
+        struck, flat_levers, count = after, after_flats, after_count
+
+    # Minimization: shrink each grown lever column by column, keeping a drop only
+    # while the labels stay clear, no collinear overlay appears, and no bypass-V
+    # flat re-collapses, so every lever lands at its least load-bearing value.
+    # Skipped entirely when nothing grew, so a clean layout never pays a re-lay
+    # (and is never perturbed by one).
+    grown: list[tuple[str, str, int | str]] = (
+        [
+            ("entry", sid, 0)
+            for sid, sec in graph.sections.items()
+            if sec.label_strike_entry_cols
+        ]
+        + [
+            ("exit", sid, 0)
+            for sid, sec in graph.sections.items()
+            if sec.label_strike_exit_cols
+        ]
+        + [
+            ("gap", sid, layer)
+            for sid, sec in graph.sections.items()
+            for layer in list(sec.label_strike_layer_gaps)
+        ]
+        + [
+            ("off_lead", sid, producer_id)
+            for sid, sec in graph.sections.items()
+            for producer_id in list(sec.off_track_lead_extra)
+        ]
+    )
+    if grown:
+        for lever in grown:
+            while _lever_value(lever) > 0:
+                _adjust(lever, -1)
+                _relay()
+                still_struck, collinear, still_flat = _label_clearance_issues(graph)
+                if still_struck or collinear or still_flat:
+                    _adjust(lever, 1)
+                    break
+        _relay(validate_layout=validate)
+
+
+def _retrofit_section_rails_phase(
+    graph: MetroGraph,
+    *,
+    x_spacing: float,
+    y_spacing: float,
+    section_x_padding: float,
+    section_y_padding: float,
+) -> None:
+    """Overwrite each rail-flagged section's internal geometry with rail layout.
+
+    The normal pipeline has positioned every section's bbox and inter-section
+    ports; this replaces only the *internal* geometry of rail-flagged sections
+    (rails + spanning pills), anchored at the bbox the placement chose.  Non-rail
+    sections and all inter-section placement keep the normal machinery.
+    """
+    rail_section_ids = [
+        sid
+        for sid, mode in graph.line_spread_overrides.items()
+        if mode is LineSpread.RAILS
+    ]
+    if not rail_section_ids or graph.line_spread is LineSpread.RAILS:
+        return
+
+    from nf_metro.layout.labels import diagonal_label_pitch_by_section
+    from nf_metro.layout.rail_mode import retrofit_section_rails
+
+    section_pitch_map = diagonal_label_pitch_by_section(graph, x_spacing)
+    # Rails sit one base grid pitch apart and their labels hang above or below
+    # the bundle, so the diagonal-label widening of the global y_spacing (the
+    # spread loop, for between-station label clearance) must not also push the
+    # rails apart.  Column X still uses the label-aware pitch, where horizontal
+    # label room genuinely matters.
+    rail_pitch = getattr(graph, "_base_y_spacing", y_spacing)
+    for sid in rail_section_ids:
+        section = graph.sections.get(sid)
+        if section is None:
+            continue
+        retrofit_section_rails(
+            graph,
+            section,
+            x_spacing=section_pitch_map.get(sid, x_spacing),
+            y_spacing=rail_pitch,
+            section_x_padding=section_x_padding,
+            section_y_padding=section_y_padding,
+        )
+
+
+def _snap(graph: MetroGraph, phase_id: str) -> None:
+    """Capture a per-phase coordinate snapshot when enabled (issue #363).
+
+    The enable flag is read once in ``compute_layout`` and stashed on the
+    graph so the per-stage call sites stay signature-free; when disabled
+    this is a single attribute read plus an early return.
+    """
+    graph._stages_completed.append(phase_id)
+    capture_phase_snapshot(
+        graph, phase_id, getattr(graph, "_phase_snapshots_enabled", False)
+    )
+
+
+def _layout_once(
+    graph: MetroGraph,
+    *,
+    x_spacing: float,
+    y_spacing: float,
+    x_offset: float,
+    y_offset: float,
+    section_x_padding: float,
+    section_y_padding: float,
+    section_x_gap: float,
+    section_y_gap: float,
+    validate: bool,
+) -> None:
+    """Run one full positioning pass at the given spacing (idempotent)."""
+    from nf_metro.layout.fan_plans import (
+        build_fan_plan_execution,
+        install_fan_plan_execution,
+    )
+    from nf_metro.parser.route_topology import build_route_topology_query
+
+    topology = build_route_topology_query(graph)
+    if topology is not None:
+        install_fan_plan_execution(
+            graph,
+            build_fan_plan_execution(
+                graph,
+                topology,
+                x_spacing=x_spacing,
+                y_spacing=y_spacing,
+                minimum_runway=INTER_ROW_EDGE_CLEARANCE,
+            ),
+        )
+    else:
+        graph.fan_plan_execution = None
+    if not graph.sections:
+        _compute_flat_layout(
+            graph,
+            x_spacing=x_spacing,
+            y_spacing=y_spacing,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
+        return
+
+    _compute_section_layout(
+        graph,
+        x_spacing=x_spacing,
+        y_spacing=y_spacing,
+        x_offset=x_offset,
+        y_offset=y_offset,
+        section_x_padding=section_x_padding,
+        section_y_padding=section_y_padding,
+        section_x_gap=section_x_gap,
+        section_y_gap=section_y_gap,
+        validate=validate,
+    )
+
+
+def _compute_flat_layout(
+    graph: MetroGraph,
+    x_spacing: float = X_SPACING,
+    y_spacing: float = Y_SPACING,
+    x_offset: float = X_OFFSET,
+    y_offset: float = Y_OFFSET,
+) -> None:
+    """Flat layout for sectionless pipelines.
+
+    Runs layer/track assignment directly on the full graph and maps
+    to coordinates without section boxes or port routing.
+    """
+    layers = assign_layers(graph)
+    tracks = assign_tracks(graph, layers)
+
+    if not layers:
+        return
+
+    # When tracks is empty (e.g. no named lines), default all to track 0.
+    if not tracks:
+        tracks = {sid: 0 for sid in layers}
+
+    unique_tracks = sorted(set(tracks.values()))
+    track_rank = {t: i for i, t in enumerate(unique_tracks)}
+
+    layer_extra = _compute_fork_join_gaps(graph, layers, tracks, x_spacing)
+
+    for sid, station in graph.stations.items():
+        station.layer = layers.get(sid, 0)
+        station.track = tracks.get(sid, 0)
+        station.x = (
+            x_offset + station.layer * x_spacing + layer_extra.get(station.layer, 0)
+        )
+        station.y = y_offset + track_rank[station.track] * y_spacing
+
+    _snap(graph, "flat")
+
+
+# Names of the content-placement phases observed running through
+# :func:`_run_placement` on the most recent ``_compute_section_layout`` pass.
+# ``_run_placement`` is the chokepoint for phases that place content *purely*
+# -- from frozen anchors plus structure -- whether called directly or via
+# :func:`_run_placement_per_row`, so this set is the ground truth for "which
+# pure placement phases actually ran".  The completeness meta-test
+# (``test_content_placement_phases_complete``) asserts it equals the guarded
+# ``CONTENT_PLACEMENT_PHASES`` set, so a new phase wired through the wrapper but
+# left unregistered -- hence outside the purity / anchor-frozen guards -- fails
+# CI.  See CONTRACT.md (anchor invariant) and #503.
+#
+# Coordinate-inheritance passes (Stage 6.7a's ``_carry_full_bundle_continuations``
+# and its 6.7b/6.7c/6.7d siblings) copy or centre on a coordinate an earlier
+# phase settled, so purity cannot hold for them by construction; they are called
+# directly and CONTRACT.md documents each one's stage instead.
+_PLACEMENT_PHASES_RUN: set[str] = set()
+
+
+def _run_placement(
+    graph: MetroGraph,
+    validate: bool,
+    stage: str,
+    fn: Callable[..., None],
+    *args: object,
+) -> None:
+    """Run a content-placement phase, asserting (under validate) it left every
+    port anchor frozen.  See CONTRACT.md (anchor invariant)."""
+    _PLACEMENT_PHASES_RUN.add(fn.__name__)
+    before = _port_anchor_snapshot(graph) if validate else None
+    fn(graph, *args)
+    if validate and before is not None:
+        _guard_anchors_frozen_during_placement(
+            graph, before, f"Stage {stage} {fn.__name__}"
+        )
+
+
+def _run_placement_per_row(
+    graph: MetroGraph,
+    validate: bool,
+    stage: str,
+    fn: Callable[..., None],
+    *args: object,
+) -> None:
+    """Run a row-local content-placement phase once per grid row, top to bottom.
+
+    Each row's sections read only coordinates within that row, and the phase
+    is translation-invariant, so scoping ``graph.sections`` to one row at a
+    time reproduces the whole-graph result.  The anchor guard from
+    :func:`_run_placement` runs per row.
+    """
+    for section_ids in _grid_rows_top_to_bottom(graph):
+        with _scoped_sections(graph, section_ids):
+            _run_placement(graph, validate, stage, fn, *args)
+
+
+def _compute_section_layout(
+    graph: MetroGraph,
+    x_spacing: float = X_SPACING,
+    y_spacing: float = Y_SPACING,
+    x_offset: float = X_OFFSET,
+    y_offset: float = Y_OFFSET,
+    section_x_padding: float = SECTION_X_PADDING,
+    section_y_padding: float = SECTION_Y_PADDING,
+    section_x_gap: float = SECTION_X_GAP,
+    section_y_gap: float = SECTION_Y_GAP,
+    validate: bool = False,
+) -> None:
+    """Section-first layout pipeline.
+
+    Quick map of the pipeline's structure.  See ``CONTRACT.md`` for the
+    full per-sub-stage table with pre/postconditions and invariant
+    coverage, and ``docs/dev/layout_pipeline.mdx`` for the human-facing
+    overview.
+
+    Parsing & partition is already done by the parser.  Six stages
+    follow:
+
+    1. **Section construction** (Stages 1.1 to 1.5).  Lay out each
+       section internally, snap row Y grids, place on the canvas grid,
+       renumber by reading order, correct left/top overshoot.  Coords
+       stay local.
+    2. **Globalise** (Stage 2.1).  Single-stage coord-regime
+       transition: translate stations and bboxes to canvas coordinates.
+    3. **Pass A - port positioning** (Stages 3.1 to 3.6).  Place ports
+       on bbox edges, align entry ports, shift LR/RL perp-entry
+       stations, align fold-section exit ports (re-flushing the rows the
+       exit move pushes down), reserve the perpendicular-port edge inset
+       on X, level a grid column's shared-runway edges.
+    4. **Pass B - downstream alignment & trunk-Y consolidation**
+       (Stages 4.1 to 4.10).  Pull ports toward downstream content,
+       snap to grid-group stations, space from termini, recompute
+       bboxes, align trunk Ys, redistribute fan-out and full-bundle
+       columns.
+    5. **Pass C - junctions & off-track lift** (Stages 5.1 to 5.5).
+       Position junctions, lift off-track stations, re-align row bbox
+       tops, compact, snap inter-section port pairs.
+    6. **Pass C - vertical settling & finishing** (Stages 6.1 to
+       6.18a).  Fan content upward, snap to grid, re-anchor off-track,
+       recenter full-bundle columns and restore their invariants,
+       balance content around trunk, loop-side X recenter, bbox shrink +
+       row tighten / push, captioned-icon pad, fit bbox tops to content,
+       re-snap the canvas grid, re-align vertical-flow entry ports and
+       junctions with their settled feeders, settle semantic fans, seat
+       orphaned half-pitch stations.
+
+    Inline ``# ---- Stage N - ... ----`` dividers below mark each
+    stage's start; ``# Stage X.Y:`` comments above each helper call
+    name the sub-stage.  Stage 6.15a runs *before* Stage 6.15, out of
+    label order: the content-top fit leaves a non-grid shift behind, and
+    the canvas snap is what closes it out, so the snap has to come last.
+    """
+    from nf_metro.layout.section_placement import (
+        _reflect_stacked_split_consumer_tracks,
+        place_sections,
+        position_ports,
+        reenforce_column_gaps,
+    )
+
+    # On-track consumers are not yet grid-snapped; the off-track reanchor
+    # (Stage 6.6 / 6.8) refuses to run until Stage 6.4 sets this True.
+    graph._consumers_grid_snapped = False
+    # Fresh inter-phase bookkeeping for this pass: _snap appends each stage id
+    # to _stages_completed, and phase_state's write-before-read checks consult
+    # both this list and _validate_active.
+    graph._stages_completed = []
+    graph._validate_active = validate
+
+    # ---- Stage 1 - Section construction (local coords) ------------------
+    # Lay out each section internally, snap row Y grids, place sections on
+    # the canvas grid, renumber by reading order, correct left/top
+    # overshoot.  All work in section-local coordinates.
+
+    # Stage 1.1: Lay out each section independently (real stations only, no ports)
+    from nf_metro.layout.labels import diagonal_label_pitch_by_section
+
+    section_pitch_map = diagonal_label_pitch_by_section(graph, x_spacing)
+    continuation_predecessors = continuation_track_predecessors(graph)
+    section_subgraphs: dict[str, MetroGraph] = {}
+    for sec_id, section in graph.sections.items():
+        sub = _layout_single_section(
+            graph,
+            section,
+            section_pitch_map.get(sec_id, x_spacing),
+            y_spacing,
+            section_x_padding,
+            section_y_padding,
+            continuation_predecessors,
+        )
+        if sub is not None:
+            section_subgraphs[sec_id] = sub
+
+    _snap(graph, "1.1")
+    _guard_no_same_row_backward_feed(graph)
+    _guard_no_mixed_entry_directions(graph)
+    if validate:
+        _guard_section_bboxes_positive(graph, "after Stage 1.1")
+        _guard_no_negative_grid_columns(graph, "after Stage 1.1")
+        _guard_explicit_grid_directions(graph, "after Stage 1.1")
+        _guard_fold_relocated_flow_ports_face_connections(graph, "after Stage 1.1")
+        _guard_tall_anchor_stack_well_formed(graph, "after Stage 1.1")
+
+    # Stage 1.2: Align Y grids across same-row, same-direction sections
+    _align_row_y_grids(graph, section_subgraphs, y_spacing, section_y_padding)
+    _snap(graph, "1.2")
+
+    # Stage 1.3: Place sections on the canvas
+    place_sections(graph, section_x_gap, section_y_gap)
+    _reflect_stacked_split_consumer_tracks(graph, section_subgraphs)
+    _snap(graph, "1.3")
+    if validate:
+        _guard_independent_components_disjoint(graph, "after Stage 1.3")
+        _guard_multi_section_cell_packed(graph, "after Stage 1.3")
+
+    # Stage 1.4: Renumber sections along connected visual routes
+    _renumber_sections_by_route(graph)
+    _snap(graph, "1.4")
+
+    # Stage 1.5: Adapt x/y_offset for left/top overshoot.
+    # Section bboxes extend left of the local origin by at least
+    # section_x_padding; x_offset normally absorbs this with margin to
+    # spare (standard margin = x_offset - section_x_padding).  When
+    # terminus-icon clearance expands bbox_x far enough that
+    # offset_x + bbox_x + x_offset < 0, content clips off the canvas.
+    # Increase x_offset to restore the standard margin and let the canvas
+    # grow on the right (via auto_width = max_x + CANVAS_PADDING in
+    # render).  Same logic for y_offset.
+    wrap_clearances = _far_side_wrap_left_clearances(graph)
+    local_lefts = [
+        section.offset_x + section.bbox_x - wrap_clearances.get(sec_id, 0.0)
+        for sec_id, section in graph.sections.items()
+        if section.bbox_w > 0
+    ]
+    if local_lefts:
+        min_local_left = min(local_lefts)
+        global_left = min_local_left + x_offset
+        if global_left < 0:
+            standard_margin = x_offset - section_x_padding
+            x_offset += standard_margin - global_left
+
+    local_tops = [
+        section.offset_y + section.bbox_y
+        for section in graph.sections.values()
+        if section.bbox_h > 0
+    ]
+    if local_tops:
+        min_local_top = min(local_tops)
+        global_top = min_local_top + y_offset
+        if global_top < 0:
+            standard_margin = y_offset - section_y_padding
+            y_offset += standard_margin - global_top
+
+    _snap(graph, "1.5")
+
+    # ---- Stage 2 - Globalise (local -> global coords) ------------------
+    # The coord-regime transition.  Owns the post-Stage-2.1 guard
+    # checkpoint (finite coords, stations-in-sections, bboxes-positive).
+
+    # Stage 2.1: Translate local coords to global coords (real stations)
+    for sec_id, section in graph.sections.items():
+        sub = section_subgraphs.get(sec_id)
+        if not sub:
+            continue
+
+        for sid, local_station in sub.stations.items():
+            if sid in graph.stations:
+                graph.stations[sid].layer = local_station.layer
+                graph.stations[sid].track = local_station.track
+                graph.stations[sid].x = local_station.x + section.offset_x + x_offset
+                graph.stations[sid].y = local_station.y + section.offset_y + y_offset
+
+        # Update section bbox to global coords
+        section.bbox_x += section.offset_x + x_offset
+        section.bbox_y += section.offset_y + y_offset
+
+    _snap(graph, "2.1")
+    if validate:
+        _guard_coordinates_finite(graph, "after Stage 2.1")
+        _guard_stations_in_sections(graph, "after Stage 2.1")
+        _guard_section_bboxes_positive(graph, "after Stage 2.1")
+
+    # ---- Stage 3 - Pass A: Port initialisation & section geometry --------
+    # Position ports on bbox edges, align entry ports, shift internal
+    # stations for perp entries, align fold exits, then top-align.
+    # Top-align runs last so it corrects any bbox shifts from fold-exit
+    # alignment.
+
+    # Stage 3.1: Position ports on section boundaries (after bbox is in global coords)
+    for sec_id, section in graph.sections.items():
+        position_ports(section, graph)
+
+    _snap(graph, "3.1")
+    if validate:
+        _guard_ports_on_boundaries(graph, "after Stage 3.1")
+
+    # Stage 3.2: Align LEFT/RIGHT entry ports with their incoming
+    # connection's Y so inter-section horizontal runs are straight.
+    # Uses _resolve_source_xy() to derive junction coordinates
+    # on-the-fly, removing the dependency on pre-positioned junctions.
+    _align_entry_ports(graph)
+    _snap(graph, "3.2")
+
+    # Stage 3.3: Shift internal stations in LR/RL sections with
+    # perpendicular (TOP/BOTTOM) entry away from the port.  Needs the
+    # aligned port X from Stage 3.2.  Moves internal station X; where the
+    # runway shift outgrows the section padding it also grows the bbox and
+    # re-pins the flow-axis exit port to the shifted edge.
+    # A runway grow can widen a section's bbox into its column neighbour;
+    # re-enforce inter-column gaps so the shift never leaves sections
+    # overlapping (Stage 1.3's enforcement ran before the grow).
+    if _shift_lr_perp_entry_stations(graph, x_spacing):
+        reenforce_column_gaps(graph)
+    _snap(graph, "3.3")
+
+    # Stage 3.4: Align LEFT/RIGHT exit ports on row-spanning (fold)
+    # sections with their target's Y so the exit is at the return row.
+    # Pushing a target section down (via _resolve_tb_exit_y) drops its bbox
+    # top below its row-mates', so the move re-flushes the tops of the rows
+    # it disturbs before returning; same-row port pairs shift by the same
+    # delta, preserving entry-port alignment.
+    _align_exit_ports(graph)
+    _snap(graph, "3.4")
+
+    # Stage 3.5: Hold each horizontal-flow section's left and right edges clear
+    # of the perpendicular (TOP/BOTTOM) ports Stages 3.2 to 3.4 just seated
+    # along X, the rotation of the inset the Y-axis sizing keeps for a vertical
+    # flow's LEFT/RIGHT ports.  Runs here because those stages are the last to
+    # move a perpendicular port relative to its own box; a grow can widen a
+    # section into its column neighbour, so re-enforce the inter-column gaps.
+    if _reserve_perp_port_edge_inset(graph):
+        reenforce_column_gaps(graph)
+    _snap(graph, "3.5")
+
+    # Stage 3.6: Level the anchored edges of the boxes in a grid column that
+    # start their content at one X, the X mirror of the row top-align at Stage
+    # 5.3.  Runs once every X-axis box mover has settled (Stage 1.1 sizing, the
+    # Stage 3.3 runway grow, the Stage 3.5 perp inset), so the levelled edge is
+    # not re-broken by a later widen.
+    _level_column_anchor_edges(graph)
+    _snap(graph, "3.6")
+
+    if validate:
+        _guard_ports_on_boundaries(graph, "after top-align")
+
+    # ---- Stage 4 - Pass B: Downstream alignment & trunk-Y consolidation -
+    # Stage 4.5's port-terminus spacing can expand bboxes via
+    # ``_expand_bbox_for_y``; Stage 4.7 re-runs row top-align to undo
+    # the resulting bbox-top drift.  Stages 4.9 / 4.10 run only on
+    # ``center_ports`` graphs.
+
+    # Stage 4.1: For non-fold LR/RL sections, pull exit-entry port pairs
+    # toward the downstream section's stations so lines flow directly.
+    _align_ports_to_downstream(graph)
+    _snap(graph, "4.1")
+
+    # Stage 4.2: When a port-connected station is the sole occupant of its
+    # layer, snap it to the port Y so the connection is horizontal.
+    _snap_sole_layer_stations_to_ports(graph)
+    _snap(graph, "4.2")
+
+    # Stage 4.3: For grid-group sections (where Stage 4.2 is skipped), snap
+    # entry ports to the Y of their first connected internal station.
+    # This produces a straight horizontal port-to-station connection
+    # instead of a diagonal from the upstream junction Y.
+    _snap_grid_group_entry_ports(graph)
+    _snap(graph, "4.3")
+
+    # Stage 4.4: Mirror of Stage 4.3 for exit ports.  Move exit ports of
+    # grid-group sections to the Y of the downstream entry port (which
+    # Stage 4.3 already snapped to a grid station).  This eliminates detours
+    # where lines leave at the section midpoint then route back.
+    _snap_grid_group_exit_ports(graph)
+    _snap(graph, "4.4")
+
+    # Stage 4.5: Ensure ports maintain at least y_spacing from terminus
+    # stations in their section so file icons don't overlap routed lines.
+    _space_ports_from_termini(graph, y_spacing)
+    _snap(graph, "4.5")
+
+    # Stage 4.6: Recompute bboxes for grid-aligned sections.  Earlier
+    # stages (3.2, 3.4, 4.5) may have expanded bboxes for temporary port
+    # positions that were later corrected (e.g. Stage 4.1 pulls ports
+    # back toward downstream stations).  Recompute with symmetric
+    # padding around the final non-port station range.
+    _recompute_grid_group_bboxes(graph)
+    _snap(graph, "4.6")
+
+    # Stage 4.7: Re-run top-align after Stage 4.5 may have shifted
+    # individual section bbox_y values (via _expand_bbox_for_y) so
+    # bbox tops within each row stay flush after port-terminus spacing.
+    _top_align_row_sections(graph)
+    _snap(graph, "4.7")
+
+    # Stage 4.8: Align trunk Ys across same-row sections.  Shifts
+    # content downward in shallower sections so the inter-section bundle
+    # passes through at a single Y per row.  Bbox tops are preserved.
+    _align_row_trunk_ys(graph)
+    # Stage 4.8a: A carrier trunk the alignment just pulled down can land on the
+    # first station of a vertical section it feeds through a perpendicular entry
+    # port.  Drop that consumer a grid step so the shared exit/entry port keeps
+    # its carrier row instead of being clamped off it into a diagonal.
+    _reserve_side_entry_carrier_clearance(graph, y_spacing)
+    _apply_planned_fan_port_geometry(graph)
+    # Carrier eligibility needs final boundary X coordinates for its corridor
+    # check and final carrier Ys after row-trunk alignment.
+    _reconcile_flow_exit_carrier_anchors(graph)
+    _snap(graph, "4.8")
+
+    # The trunk anchors (LR/RL port Ys) are now resolved.  The phases below
+    # position content around them and must never move one; ``_run_placement``
+    # runs each so that, under ``validate``, a guard asserts the anchors stayed
+    # frozen.  See CONTRACT.md (anchor invariant).
+
+    # Stage 4.9: Materialise each complete semantic fan in its relative frame,
+    # then leave unsupported groups to the legacy placement path.
+    _run_placement(
+        graph,
+        validate,
+        "4.9",
+        _apply_planned_fan_geometry,
+        _snapshot_planned_fan_centrelines(graph),
+    )
+    _run_placement(graph, validate, "4.9", _redistribute_fanout_siblings, y_spacing)
+    if _fit_planned_fan_bboxes(graph, section_x_padding, section_y_padding):
+        reenforce_column_gaps(graph)
+    _snap(graph, "4.9")
+
+    # Stage 4.10: Symmetrically fan a column of full-bundle stations
+    # around the trunk Y when no unique trunk exists (e.g. Reporting's
+    # Shiny app + Quarto report, both carrying the full bundle).
+    #
+    # Why both Stage 4.10 and Stage 6.7's recenter: Stage 4.10's
+    # symmetric layout is read by Stage 5.2's bbox-growth, compaction,
+    # and snap-to-grid passes (an empty trunk row in fanned columns
+    # lets Stages 5.4 / 6.13 shrink the section bbox to the compact
+    # extent).  Stage 6.7 then re-fans the same columns using the
+    # post-row-alignment trunk Y, which can have drifted from Stage
+    # 4.10's port-Y anchor.  Skipping Stage 4.10 changes intermediate
+    # bbox sizes and is not empty-render-diff; the two passes are
+    # load-bearing in combination.
+    _run_placement(
+        graph, validate, "4.10", _redistribute_full_bundle_columns, y_spacing
+    )
+    # Stage 4.10a: carry each fanned column's sole successor back onto its
+    # predecessor's lane, which the fan just moved out from under it.
+    _carry_full_bundle_continuations(graph)
+    _snap(graph, "4.10")
+
+    _settle_pass_c(
+        graph,
+        validate=validate,
+        y_spacing=y_spacing,
+        section_y_padding=section_y_padding,
+        section_y_gap=section_y_gap,
+    )
+
+
+def _settle_pass_c(
+    graph: MetroGraph,
+    *,
+    validate: bool,
+    y_spacing: float,
+    section_y_padding: float,
+    section_y_gap: float,
+) -> None:
+    """Pass C: junction placement, off-track lift, vertical content settling,
+    the inter-row cascade, and final canvas/grid snapping.  See CONTRACT.md for
+    the per-stage contract."""
+    _place_pass_c_content(
+        graph,
+        validate=validate,
+        y_spacing=y_spacing,
+        section_y_padding=section_y_padding,
+    )
+    _stack_rows(
+        graph,
+        validate=validate,
+        y_spacing=y_spacing,
+        section_y_padding=section_y_padding,
+        section_y_gap=section_y_gap,
+    )
+    _finalize_layout(
+        graph,
+        validate=validate,
+        y_spacing=y_spacing,
+        section_y_padding=section_y_padding,
+        section_y_gap=section_y_gap,
+    )
+
+
+def _place_pass_c_content(
+    graph: MetroGraph,
+    *,
+    validate: bool,
+    y_spacing: float,
+    section_y_padding: float,
+) -> None:
+    """Stage 5.1 through Stage 6.12: position junctions, lift off-track
+    inputs, settle vertical content, and recenter fans / loop-side
+    stations within each section."""
+    # ---- Stage 5 - Pass C: Junctions & off-track lift ------------------
+    # All port positions are now final; Stage 5.1 positions junctions
+    # once.  Stage 5.2 lifts off-track stations; Stages 5.3 to 5.5
+    # then re-align row bbox tops, compact, and re-snap inter-section
+    # port pairs.  Stage 6 below handles the rest of Pass C.
+
+    # A vertical-flow (TB/BT) section's perpendicular entry port is pinned a
+    # fixed offset above its first station; the bbox growth between Stage 3.2's
+    # alignment and here can lift the section top past it, leaving the port off
+    # its boundary edge.  Re-align before the pass-C guards check boundaries
+    # (Stage 6.16 re-aligns again after the late vertical settling).
+    _align_entry_ports(graph, vertical_only=True)
+
+    # Stage 5.1: Position junction stations in the inter-section gap.
+    _position_junctions(graph)
+    _snap(graph, "5.1")
+
+    # Stage 5.2: Lift off_track stations above their section's top track.
+    # Runs last so it operates on finalised station Ys and bboxes.
+    _lift_off_track_stations(graph, y_spacing, section_y_padding)
+    # The upward bbox growth above can push the topmost section above
+    # the canvas top margin set by Stage 1.5; shift the whole graph
+    # down to restore the margin.  No-op when no section overflowed.
+    _shift_graph_into_canvas(graph, section_y_padding)
+    _snap(graph, "5.2")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 5.2")
+
+    # Stage 5.3: Re-align bbox tops within each grid row after off-track
+    # lifting expanded some sections upward.  Unlike the Stage 3.4 / 4.7 row
+    # realign which shifts stations with the bbox, this only grows the bbox
+    # upward so the empty input-band space lines up across the row.  Station
+    # Ys in unlifted sections are preserved.
+    _top_align_row_bboxes_only(graph)
+    _snap(graph, "5.3")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 5.3")
+
+    # Stage 5.4: Compact row-mate sections so content sits just inside
+    # the bbox top edge.  Shifts an entire row's column group up by the
+    # smallest above-content slack, preserving trunk alignment.  Bbox
+    # heights shrink correspondingly so the empty top space disappears.
+    _compact_row_content_to_bbox_top(graph, section_y_padding, y_spacing)
+    _snap(graph, "5.4")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 5.4")
+
+    # Stage 5.5: Snap inter-section LR/RL port pairs to a common Y so
+    # the trunk bundle stays perfectly horizontal across boundaries.
+    # Picks the downstream entry port's Y as the anchor since it sits
+    # on the row's aligned trunk grid.
+    _snap_inter_section_port_pairs(graph)
+    _snap(graph, "5.5")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 5.5")
+
+    # ---- Stage 6 - Pass C: Vertical settling & finishing ---------------
+    # The long settle: fan free / source content upward, half-grid
+    # symfan, snap to grid, bbox-bottom and off-track-reanchor
+    # post-snap fixups, full-bundle recenter + its invariant-restore
+    # sub-phases, terminus pin / auto-balance, loop-side X recenter,
+    # bbox shrink + row tighten / push, captioned-icon pad.  Most
+    # phases here run unconditionally; a few are gated on
+    # ``center_ports`` or on a specific topology (see each comment).
+
+    # Stage 6.1: Fan a section's free content upward when the row's
+    # compaction left visible empty space at the bbox top.  Only fires
+    # for sections whose internal stations have no upward dependency
+    # (no off-track band) and whose trunk Y sits below the bbox top
+    # padding by more than one ``y_spacing`` slot.
+    # Frozen reference for Stages 6.1 / 6.2 (see _snapshot_placement_refs).
+    _snapshot_placement_refs(graph)
+    _run_placement_per_row(
+        graph, validate, "6.1", _fan_free_content_upward, section_y_padding, y_spacing
+    )
+    _snap(graph, "6.1")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.1")
+
+    # Stage 6.2: Companion to Stage 6.1 for source-stack sections.  When the
+    # entry column has a single full-bundle trunk plus subset-bundle
+    # source inputs (file icons with no inbound edges), lift the
+    # nearest-to-trunk sources into the empty top band so the section
+    # is bottom- and top-weighted instead of stacked below the trunk.
+    _run_placement_per_row(graph, validate, "6.2", _fan_source_inputs_upward, y_spacing)
+    _snap(graph, "6.2")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.2")
+
+    # Stage 6.3: For sections that contain exactly a 2-branch
+    # symmetric fan (and no off-track or other constraining content),
+    # collapse the fan onto half-pitch offsets so the section consumes
+    # one vertical grid unit instead of two.  Marks the branch stations
+    # in ``graph.half_grid_station_ids`` so the next snap pass leaves
+    # them alone.  Runs before ``_snap_all_y_to_grid`` so the snap-to-
+    # row-grid pass doesn't immediately undo the compaction.
+    if graph.center_ports:
+        _run_placement_per_row(
+            graph,
+            validate,
+            "6.3",
+            _apply_half_grid_2branch_symfan,
+            y_spacing,
+            section_y_padding,
+        )
+        _snap(graph, "6.3")
+        if validate:
+            _run_pass_c_guards(graph, "after Stage 6.3")
+
+    # Stage 6.4: Snap all station/port Ys to a per-section y_spacing
+    # grid.  Trunk-Y align, port-snap, and the row compaction/fan
+    # phases compute shifts that don't respect the grid pitch, leaving
+    # coordinates at fractional Ys (e.g. 298.785 when the pitch is 55).
+    # This final pass restores clean grid positions before validation.
+    _snap_all_y_to_grid(graph, y_spacing)
+    # On-track consumer Ys are now final/grid-snapped; the off-track
+    # reanchor (Stage 6.6 / 6.8) may run from here on.
+    graph._consumers_grid_snapped = True
+    _snap(graph, "6.4")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.4")
+
+    # Stage 6.5: Grow TB-section bbox bottoms so they align with the
+    # downstream LR section's bbox bottom.  Without this the TB
+    # section's bbox ends right at the inter-section exit port Y,
+    # making the line look pinned to the section edge.
+    _align_tb_section_bbox_bottoms(graph, section_y_padding)
+    _snap(graph, "6.5")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.5")
+
+    # Stage 6.6: Re-anchor off-track inputs to their consumer's final
+    # (snapped) Y.  Stage 5.2's lift placed them relative to pre-snap
+    # consumer Ys; snapping the consumer to the grid can shift it by
+    # up to half a pitch, which would collapse the y_spacing gap above
+    # off-track.  Recomputing here pins each off-track at
+    # consumer.y - n*y_spacing on the final grid and grows the bbox
+    # upward if the new position rises above the padding zone.
+    _reanchor_off_track_to_consumer(graph, y_spacing, section_y_padding)
+    # Same canvas-fit safeguard as after Stage 5.2: a reanchor-driven
+    # bbox grow can push the topmost section above the canvas top.
+    _shift_graph_into_canvas(graph, section_y_padding)
+    _snap(graph, "6.6")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.6")
+
+    # Stage 6.7: Re-center full-bundle columns around the row's final
+    # trunk Y.  Under ``center_ports``, ``_redistribute_full_bundle_columns``
+    # runs early when only local port Ys are available; for terminal
+    # sections whose port Y differs from the row's eventual trunk Y, the
+    # symmetric fan ends up offset from the trunk row (e.g. Reporting's
+    # Shiny at the trunk row, Quarto two slots below, instead of one above
+    # and one below).  This re-center uses the final inter-section bundle
+    # Y as the anchor so the trunk row stays empty in each fanned column.
+    #
+    # Under ``diamond_style: symmetric`` this is the sole pass (no early
+    # Stage 4.10 companion runs) -- see ``_recenter_full_bundle_columns``'s
+    # docstring for why anchoring on the final row trunk is correct even
+    # without an earlier guess to correct.
+    #
+    # Stage 6.8 and Stage 6.9 below restore invariants the recenter
+    # breaks.
+    if graph.center_ports or graph.diamond_style == "symmetric":
+        _run_placement_per_row(
+            graph,
+            validate,
+            "6.7",
+            _recenter_full_bundle_columns,
+            y_spacing,
+        )
+        # Stage 6.7a: re-carry the sole successors of the columns the recenter
+        # just re-fanned; the Stage 4.10a carry ran against the earlier guess.
+        _carry_full_bundle_continuations(graph)
+        # Stage 6.7b: carry each symmetric fork's dead-end continuation onto its
+        # branch track.  Stage 6.7c/6.7d then pin the section, its entry port and
+        # the reconvergence spine that port feeds to the incoming bundle -- all
+        # must follow the recenter that fixes the branch Ys they align to.
+        _carry_symmetric_branch_continuations(graph, section_y_padding)
+        _align_symfan_section_to_row_feeder(graph)
+        _center_lr_entry_ports_on_fork(graph, y_spacing)
+        _center_lr_exit_ports_on_join(graph)
+        _snap(graph, "6.7")
+
+        # Stage 6.8: Re-anchor off-track inputs after the recenter.
+        # The recenter moves consumers to the final trunk-anchored Y,
+        # which can leave the off-track icon stranded at the old
+        # consumer Y (overlapping the consumer station instead of
+        # sitting one row above it).  Uses each consumer's post-
+        # recenter Y as the new anchor and grows the section bbox
+        # upward when the lifted band moves above its current top.
+        _reanchor_off_track_to_consumer(graph, y_spacing, section_y_padding)
+        _snap(graph, "6.8")
+
+        # Stage 6.9: Re-run row top-align.  A Stage 6.8 reanchor-
+        # driven bbox grow leaves the section's bbox above its row
+        # mates'; pull row mates' bbox tops up to match so the section
+        # row stays flush along its top edge.
+        _top_align_row_bboxes_only(graph)
+        _snap(graph, "6.9")
+        if validate:
+            _run_pass_c_guards(graph, "after Stage 6.9")
+
+    # Stage 6.10: After fan-re-centering, single-station downstream
+    # columns (e.g. terminus file icons) may have stayed at their
+    # pre-fan Y while their sole upstream moved to the trunk.  Pin
+    # them back onto the source Y so the connection stays horizontal.
+    _align_terminus_to_upstream(graph)
+    _snap(graph, "6.10")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.10")
+
+    # Stage 6.11: Auto-balance pass.  For sections whose final layout
+    # still leaves an empty band above the trunk while more siblings
+    # sit below than above, lift bottommost movable siblings into the
+    # empty top band so content sits symmetrically around the trunk.
+    # Runs after re-centering and terminus-Y pinning so it sees the
+    # final trunk Y.  U-turn-safe and bbox-bounded.
+    # Frozen reference for Stage 6.11 (see _snapshot_placement_refs).
+    _snapshot_placement_refs(graph)
+    _run_placement_per_row(
+        graph,
+        validate,
+        "6.11",
+        _balance_section_content_around_trunk,
+        section_y_padding,
+        y_spacing,
+    )
+    _snap(graph, "6.11")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.11")
+
+    # Stage 6.12: Recenter fan-out side stations on their loop midpoint.
+    # The layer-based X assignment places off-trunk siblings (e.g. propd,
+    # dream, DESeq2 fanned off limma between section entry and annotate
+    # results) at a fixed offset from the section entry that ignores how
+    # far the join's diagonal-back corner reaches.  Asymmetric corners
+    # leave the station visibly off-centre on its horizontal loop run.
+    # Reposition each side station to the midpoint of the two diagonal
+    # corner Xs derived from the actual routing geometry.
+    _run_placement_per_row(graph, validate, "6.12", _recenter_loop_side_stations)
+    _snap(graph, "6.12")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.12")
+
+
+def _stack_rows(
+    graph: MetroGraph,
+    *,
+    validate: bool,
+    y_spacing: float,
+    section_y_padding: float,
+    section_y_gap: float,
+) -> None:
+    """Stage 6.13 and Stage 6.14: the cross-row inter-row stacking -- shrink
+    and tighten row-mate bboxes, then shift sparse loop-side stations and
+    propagate the resulting bbox growth to lower rows."""
+    # Stage 6.13: Shrink rowspan / row-mate bboxes whose content moved
+    # up after compact (e.g. ``_fan_source_inputs_upward`` lifted the
+    # bottom rows away from the bbox bottom), then pull lower rows up
+    # to close the slack the shrink revealed.  Bottom-only shrink, so
+    # trunk alignment is unaffected; tighten only fires where a rowspan
+    # section's content fell short of its row claim.
+    _shrink_and_tighten_rows(graph, section_y_padding, section_y_gap)
+    _snap(graph, "6.13")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.13")
+
+    # Stage 6.14: Shift sparse loop-side stations (e.g. ``grea`` -- one
+    # incoming, one outgoing, single-line consumer) onto a half-grid Y
+    # when sharing the full-row Y with a busier sibling whose inbound
+    # bundle would otherwise cross the sparse station's marker bbox.
+    # When the shift grows a section's bbox downward, the helper also
+    # pushes lower-row sections down internally to restore
+    # ``section_y_gap``.
+    _shift_and_propagate_loop_stations(
+        graph, y_spacing, section_y_padding, section_y_gap
+    )
+    _snap(graph, "6.14")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.14")
+
+
+def _finalize_layout(
+    graph: MetroGraph,
+    *,
+    validate: bool,
+    y_spacing: float,
+    section_y_padding: float,
+    section_y_gap: float,
+) -> None:
+    """Stage 6.15a through the final guards: restore symmetric top padding,
+    re-snap the canvas to the grid, re-align perpendicular entry ports with
+    their feeders, and run the closing Pass C invariant checks."""
+    # Stage 6.15a: Restore top padding symmetric with the bottom.  Fan
+    # re-distribution (Stages 4.9 / 4.10 / 6.7 / 6.11) can lift a branch
+    # above the content-top line the bbox was sized for, crowding the
+    # topmost marker against the bbox top while the bottom keeps its full
+    # band.  Grow each bbox top to a full ``section_y_padding`` above the
+    # highest marker (bounded by the row above) so content fanning above
+    # the trunk sits centred in its box.  The upward growth can push the
+    # topmost section above the canvas top margin, so re-fit; the
+    # re-fit's non-grid shift is then cleaned up by the Stage 6.15
+    # canvas snap below.
+    _reserve_row_gap_for_top_padding(graph, section_y_padding, section_y_gap)
+    _fit_bboxes_to_content_top(graph, section_y_padding, section_y_gap)
+    _top_align_packed_row_bboxes(graph)
+    push_lower_rows_after_bbox_grow(graph, section_y_gap)
+    # Follows the grow above: a side-entered vertical section beside a
+    # row-mate whose top just grew is lifted to that feeder.
+    _top_align_side_entered_vertical_to_feeder(graph)
+    _distribute_stacked_rows_in_rowspan_band(graph)
+    _shift_graph_into_canvas(graph, section_y_padding)
+    # Must precede the structural snapshot: the extent counts the exit port and
+    # the next relay's inter-row cascade reads it, so both need the lowered Y.
+    _realign_fold_lr_exit_ports(graph)
+    _snap(graph, "6.15a")
+    # Refresh the structural extent snapshot to reflect Stage 6.15a's bbox
+    # adjustments.  The cascade (Stage 6.13) already ran using Phase 1's
+    # content-hugging bbox as its reference; this re-snapshot records the
+    # final settled height-below-top so the test invariant can verify
+    # structural-extent fidelity without a separate pre-cascade capture.
+    _snapshot_struct_heights_below_top(graph, section_y_padding)
+
+    # Stage 6.15: Restore canvas-wide grid alignment after all settling.
+    # Stage 6.4 snaps to a per-row grid; later helpers (notably
+    # ``_shift_graph_into_canvas`` shifting by ``section_y_padding -
+    # min_top``, which is not a multiple of ``y_spacing`` when padding
+    # is not a grid multiple) can introduce a uniform half-grid drift.
+    # When every real station shares a single non-zero residue, shift
+    # the whole canvas by the smallest signed amount that returns them
+    # to integer multiples of ``y_spacing``.  No-op when residues are
+    # mixed.
+    _snap_canvas_y_to_grid(graph, y_spacing, section_y_padding)
+    _snap(graph, "6.15")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.15")
+
+    # Stage 6.16: Re-align entry ports and junctions with their now-settled
+    # feeders.  A vertical-flow (TB/BT) section's perpendicular entry port is
+    # pinned a fixed offset above its first internal station, so the late
+    # vertical settling (Stages 6.13-6.15) that shifts the section's content
+    # also drags the entry port off the upstream feeder Y it was snapped to in
+    # Stage 3.2, re-introducing an inter-section S-kink.  Re-running the
+    # alignment for vertical-flow sections only re-snaps the port to its
+    # now-settled feeder, while leaving the horizontal-flow (LR/RL) ports on
+    # the positions the settling deliberately gave them.  Junctions then
+    # re-anchor to the settled exit/entry port Ys regardless of direction
+    # (they live in inter-section space and aren't moved by the settling
+    # phases, so otherwise a fan-out bundle dips to a stale junction Y).
+    perp_entry_ys_before_resnap = {
+        pid: graph.stations[pid].y
+        for sec in graph.sections.values()
+        for pid in sec.entry_ports
+        if pid in graph.stations
+        and pid in graph.ports
+        and graph.ports[pid].side in perpendicular_port_sides(sec.direction or "LR")
+    }
+    _align_entry_ports(graph, vertical_only=True)
+    # The re-snap above is the last mover of these ports, so a top sized while
+    # one sat higher may be lowered.  Scoped to the sections
+    # that actually moved: replaying the fit corpus-wide re-opens the transient
+    # row-flush the content-hug pass is entitled to undo.
+    resnapped = {
+        graph.stations[pid].section_id or ""
+        for pid, was in perp_entry_ys_before_resnap.items()
+        if abs(graph.stations[pid].y - was) > SAME_COORD_TOLERANCE
+    }
+    # Stage 4.8a dropped these consumers' content without lowering their box top,
+    # leaving the same top slack a re-snapped port would; hug them here too.
+    resnapped |= graph._carrier_clearance_shifted
+    if resnapped:
+        refit_tops_after_entry_resnap(graph, resnapped, section_y_padding)
+    _apply_planned_fan_port_geometry(graph)
+    _position_junctions(graph)
+    _snap(graph, "6.16")
+    if validate:
+        _run_pass_c_guards(graph, "after Stage 6.16")
+
+    # Stage 6.17: Re-materialise semantic fan frames against their settled
+    # centreline, then compact unsupported legacy diamonds where requested.
+    _run_placement(
+        graph,
+        validate,
+        "6.17",
+        _apply_planned_fan_geometry,
+        _snapshot_planned_fan_centrelines(graph),
+    )
+    if graph.diamond_style == "symmetric":
+        _apply_half_grid_symmetric_diamonds(graph, y_spacing)
+    _snap(graph, "6.17")
+
+    # Stage 6.18: Seat orphaned half-pitch stations on a full grid row (see
+    # _expand_orphaned_half_grid_stations and CONTRACT.md Stage 6.18).  Must
+    # follow every pass that places or dissolves a half-pitch pair, so the
+    # half-grid marks are final.
+    _expand_orphaned_half_grid_stations(graph, y_spacing, section_y_padding)
+    _snap(graph, "6.18")
+
+    # Stage 6.17 is a late semantic placement, downstream of the corpus-wide
+    # content-top fit.  Refit only the sections whose plan-owned coordinates it
+    # materialised, and only when their top band carries no routing approach.
+    planned_fan_sections = planned_fan_layout_section_ids(graph)
+    if planned_fan_sections:
+        refit_empty_section_tops_to_content(
+            graph,
+            planned_fan_sections,
+            section_y_padding,
+        )
+        # The band a planned fan lifted content into may be one the row above
+        # already reaches, and the grow below cannot breach that ceiling.
+        # Widening the row boundary first gives it the room to reach the full
+        # band, exactly as the corpus-wide fit does at Stage 6.15a.
+        _reserve_row_gap_for_top_padding(
+            graph,
+            section_y_padding,
+            section_y_gap,
+            planned_fan_sections,
+        )
+        grow_section_bands_to_content(
+            graph,
+            planned_fan_sections,
+            section_y_padding,
+            section_y_gap,
+        )
+        push_lower_rows_after_bbox_grow(graph, section_y_gap)
+        # This placement is the last mover of content, so the settled extents
+        # the fidelity check reads are the ones measured here.
+        _snapshot_struct_heights_below_top(graph, section_y_padding)
+    _snap(graph, "6.18a")
+
+    if validate:
+        if graph._defer_final_guards:
+            graph._after_final_deferred = True
+        else:
+            _run_after_final_checkpoint(graph, section_y_gap, section_y_padding)
+
+
+def _run_after_final_checkpoint(
+    graph: MetroGraph, section_y_gap: float, section_y_padding: float
+) -> None:
+    """Run the closing ``after final`` validate checkpoint on the settled graph.
+
+    The single call site for the checkpoint's guard set: ``_finalize_layout``
+    runs it directly, and ``compute_layout`` re-runs it here once the
+    geometric-bypass cycle has settled the geometry a deferred pass skipped.
+    """
+    run_validate_guards(
+        graph,
+        "after final",
+        include_final=True,
+        section_y_gap=section_y_gap,
+        section_y_padding=section_y_padding,
+    )

@@ -1,15 +1,7 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  for (let i=0;i<3;i++) {
-    const y=340+i*180;
-    P.path(`M360 ${y} H900 Q960 ${y} 960 ${y+60} V${y+100} Q960 ${y+160} 900 ${y+160} H520 l-80 60 l10-60 H360 Q300 ${y+160} 300 ${y+100} V${y+60} Q300 ${y} 360 ${y} Z`, { at: P.c(1)+i*0.4, color: i===1?'red':'ink', fill: i===1?'redF':'paper', sw: 4 });
-  }
-  P.arrow(1020, 420, 1280, 420, { at: P.c(2), color: 'blue' });
-  P.text('先最大', { x: 1400, y: 440, w: 260, align:'c', size: 38, color:'blue', at: P.c(2), cps: 5 });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');N.U.setStage(host.width,host.height);
+    return t=>{c.fillStyle='#f4e6c2';c.fillRect(0,0,1920,1080);const p=new Path2D();for(let i=0;i<24;i++){const a=i/24*Math.PI*2,r=i%2?255:400;const x=960+Math.cos(a)*r,y=520+Math.sin(a)*r;i?p.lineTo(x,y):p.moveTo(x,y);}p.closePath();c.fillStyle='#ffd60a';c.fill(p);N.PAINT.shadeDots(c,p,550,110,820,820,14,'#e3221b',()=>.45);N.TY.slam(c,'AHA!',720,590,t+.2,{size:170,fam:'sans-serif',color:'#111'});};
+  });
 });

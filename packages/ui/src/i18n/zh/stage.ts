@@ -1,6 +1,6 @@
 // 工作台：成片、逐页、细看一页、看大图
 export default {
-  status: { queued: '排队', drawing: '正在画', checking: '自己检查中', ok: '画好了', flagged: '有一处要你看看', failed: '没画出来' },
+  status: { queued: '排队', drawing: '正在画', checking: '自己检查中', ok: '画好了', flagged: '检查未通过', unreviewed: '审图未完成', failed: '没画出来' },
   paused: '已暂停',
   stageRunning: '{stage}中',
   awaitingApproval: '等你确认分镜',

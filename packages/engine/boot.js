@@ -28,10 +28,11 @@
   const libs = (meta.libs || []).map((f) => NM + f);
   css.push(...libs.filter((f) => f.endsWith('.css')));
   const js = [NM + 'roughjs/bundled/rough.js', `${KIT}styles/${style}/style.js`, `${KIT}runtime/look.js`]
-    .concat(['timing', 'core', 'text', 'doodles', 'widgets', 'live', 'tokens', 'shell3d', 'three', 'media', 'player'].map((f) => `${KIT}runtime/${f}.js`))
+    .concat(['timing', 'core', 'canvas-layout', 'text', 'doodles', 'widgets', 'live', 'tokens', 'shell3d', 'three', 'media', 'player'].map((f) => `${KIT}runtime/${f}.js`))
     .concat((meta.vendor || []).map((v) => `${KIT}vendor/${v}.js`))
     .concat(libs.filter((f) => !f.endsWith('.css')))
     .concat(meta.voice ? ['voice.js'] : [])      // real narration timing from engine/tools/tts.mjs (SCRIPT.VOICE)
+    .concat(KIT + 'runtime/material.js', KIT + 'runtime/native-scene.js', KIT + 'runtime/style-kit.js')
     .concat(meta.extras || [])
     .concat(KIT + 'runtime/engine.js')
     .concat(SCRIPT.PAGES.map((p) => `${portrait ? 'pages-portrait' : 'pages'}/${p.id}.js`))

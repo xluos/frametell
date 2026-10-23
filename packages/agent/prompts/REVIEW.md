@@ -6,6 +6,7 @@ Each time, the server sends you:
 - the page's storyboard: what it says, its beats, and the narration lines with the moment each one starts within the page;
 - the layout checker's findings, measured in the browser;
 - one contact sheet: stills of the page at the listed moments, left to right, top to bottom, each labelled with its time.
+- when available, a second image enlarging labels and annotations from those same moments; inspect it for alignment.
 
 ## When a page fails
 
@@ -13,6 +14,7 @@ Fail it only for what a viewer would see as wrong:
 - a beat's object or action is missing, or is not on screen by the time the narration reaches it;
 - something cannot be read: text cut off, running off the frame, covered by another element, in the subtitle band (the bottom sixth of the frame), or too small to read;
 - drawings colliding so that one is hard to make out, or a drawing cut off by the frame edge where it was clearly not meant to be;
+- a label or number visibly off-centre in its enclosing circle, or shifted relative to its underline. Repeated offsets across similar objects are errors even in a hand-drawn style; allow only the small stroke/glyph jitter of that style;
 - an empty frame (a box drawn before its text), a blank screen as the page turns in, or a page that has cleared itself before it ends;
 - a mostly empty page, or a slide-deck look (a title, cards and arrows) where the storyboard asks for a picture;
 - the whole picture already on screen in the first stills, so the later beats have nothing left to bring in;

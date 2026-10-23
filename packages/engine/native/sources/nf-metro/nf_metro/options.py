@@ -1,0 +1,298 @@
+"""Single source of truth for layout/render options exposed in both planes.
+
+Every tunable that can be set both by a ``%%metro`` directive and by a CLI
+flag is declared once here as a :class:`LayoutOption`. The directive
+dispatcher (:mod:`nf_metro.parser.directives`) and the CLI
+(:mod:`nf_metro.cli`) each build their surface from this registry, so adding
+an option - its name, type, constraints, and help - wires up the directive
+handler and the CLI flag together rather than in two hand-kept places.
+
+Each option targets a field on :class:`~nf_metro.parser.model.MetroGraph` of
+the same name (or :attr:`LayoutOption.attr`): the directive writes that field
+during parsing, an explicitly-set CLI flag overwrites it afterwards, and the
+layout engine and renderer read it. Precedence is uniform: CLI flag (when set)
+> ``%%metro`` directive > built-in default.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Any, Literal, TypeGuard
+
+# Returned by :func:`coerce` in place of a value when the payload is unusable.
+INVALID = object()
+
+OptionKind = Literal["float", "int", "bool", "choice", "str"]
+NumberSign = Literal["any", "nonneg", "positive"]
+LineOrder = Literal["definition", "span"]
+LINE_ORDER_CHOICES: tuple[LineOrder, ...] = ("definition", "span")
+
+
+def is_line_order(value: object) -> TypeGuard[LineOrder]:
+    """Return whether *value* is a supported line-order policy."""
+    return isinstance(value, str) and value in LINE_ORDER_CHOICES
+
+
+@dataclass(frozen=True)
+class LayoutOption:
+    """One tunable settable via ``%%metro`` and the equivalent CLI flag.
+
+    ``kind`` selects parsing and the CLI type: ``float``/``int`` numbers
+    (constrained by ``sign``), a ``bool`` flag, a ``choice`` from ``choices``,
+    or a free ``str``.
+    """
+
+    name: str
+    kind: OptionKind
+    help: str
+    attr: str = ""
+    choices: tuple[str, ...] = ()
+    sign: NumberSign = "any"
+    max_val: float | None = None  # inclusive upper bound for numeric options
+    parse_time: bool = False  # consumed during parsing, not after
+    hidden: bool = False  # omit the generated CLI flag from --help
+
+    @property
+    def target_attr(self) -> str:
+        """Graph attribute this option writes (defaults to ``name``)."""
+        return self.attr or self.name
+
+    @property
+    def cli_flag(self) -> str:
+        """Long CLI flag for this option (kebab-cased ``name``)."""
+        return "--" + self.name.replace("_", "-")
+
+
+def coerce(opt: LayoutOption, raw: str) -> tuple[Any, str]:
+    """Parse a directive payload for *opt*.
+
+    Returns ``(value, "")`` on success or ``(INVALID, expected)`` on failure,
+    where *expected* describes the valid input for a warning message.
+    """
+    text = raw.strip()
+    if opt.kind == "bool":
+        token = text.lower()
+        if token in ("true", "yes", "1"):
+            return True, ""
+        if token in ("false", "no", "0", ""):
+            return False, ""
+        return INVALID, "a boolean (true/false)"
+    if opt.kind == "choice":
+        token = text.lower()
+        if token in opt.choices:
+            return token, ""
+        return INVALID, " or ".join(repr(c) for c in opt.choices)
+    if opt.kind in ("int", "float"):
+        caster = int if opt.kind == "int" else float
+        try:
+            num = caster(text)
+        except ValueError:
+            return INVALID, "a number"
+        if not math.isfinite(num):
+            return INVALID, "a finite number"
+        if opt.sign == "nonneg" and num < 0:
+            return INVALID, "a non-negative number"
+        if opt.sign == "positive" and num <= 0:
+            return INVALID, "a positive number"
+        if opt.max_val is not None and num > opt.max_val:
+            return INVALID, f"a number <= {opt.max_val}"
+        return num, ""
+    return text, ""
+
+
+# Declaration order is the order CLI flags appear in --help.
+LAYOUT_OPTIONS: tuple[LayoutOption, ...] = (
+    LayoutOption(
+        name="x_spacing",
+        kind="float",
+        sign="positive",
+        help="Horizontal spacing between layers (default: auto - widened from "
+        "60 only when wide labels would otherwise collide).",
+    ),
+    LayoutOption(
+        name="y_spacing",
+        kind="float",
+        sign="positive",
+        help="Vertical spacing between tracks (default: auto - derived from the "
+        "map's content so captioned icons and dense labels don't collide).",
+    ),
+    LayoutOption(
+        name="section_x_gap",
+        kind="float",
+        sign="nonneg",
+        help="Horizontal gap between sections (default: 50).",
+    ),
+    LayoutOption(
+        name="section_y_gap",
+        kind="float",
+        sign="nonneg",
+        help="Vertical gap between sections (default: 50).",
+    ),
+    LayoutOption(
+        name="track_gap",
+        kind="float",
+        sign="nonneg",
+        help="Visual gap (px, 0–3) between adjacent line strokes in a bundle "
+        "(edge to edge, not centre to centre). 0 means lines touch with no "
+        "space between them; 1 is the default. Values above 3 cause routing "
+        "problems on complex maps.",
+        max_val=3.0,
+    ),
+    LayoutOption(
+        name="fold_threshold",
+        kind="int",
+        sign="positive",
+        parse_time=True,
+        help="Max station-columns a section row may reach before the "
+        "auto-layout wraps it onto the next row (default 15). Raise it to keep "
+        "a long horizontal trunk of sections on a single row.",
+    ),
+    LayoutOption(
+        name="diamond_style",
+        kind="choice",
+        choices=("straight", "symmetric"),
+        help="Fork-join (diamond) layout: 'straight' keeps the top branch on "
+        "the main track (default); 'symmetric' fans the branches evenly.",
+    ),
+    LayoutOption(
+        name="line_order",
+        kind="choice",
+        choices=LINE_ORDER_CHOICES,
+        help="Line ordering for track assignment: 'definition' (default) "
+        "preserves .mmd order, 'span' gives longest-spanning lines inner tracks.",
+    ),
+    LayoutOption(
+        name="row_align",
+        kind="choice",
+        choices=("content", "top"),
+        help="Section bbox vertical sizing within a shared grid row: 'content' "
+        "(default) hugs each section's own content, 'top' grows shorter "
+        "row-mates upward so their bbox tops (and header badges) sit flush "
+        "with the tallest section in the row.",
+    ),
+    LayoutOption(
+        name="center_ports",
+        kind="bool",
+        help="Centre inter-section ports on the shorter of the two connected "
+        "sections, so lines enter/exit at the visual midpoint.",
+    ),
+    LayoutOption(
+        name="compact_offsets",
+        kind="bool",
+        help="Size each station only for the lines actually passing through it, "
+        "rather than reserving a slot for every declared line.",
+    ),
+    LayoutOption(
+        name="label_angle",
+        kind="float",
+        sign="any",
+        help="Angle in degrees for station labels (0 = horizontal). Overrides "
+        "the theme default; useful for dense trunks where horizontal labels "
+        "collide.",
+    ),
+    LayoutOption(
+        name="font_scale",
+        kind="float",
+        sign="positive",
+        help="Scale every text size and the label-width metrics that drive "
+        "layout spacing (1.0 = default).",
+    ),
+    LayoutOption(
+        name="stroke_scale",
+        kind="float",
+        sign="positive",
+        help="Scale track stroke weight and station pill size, widening bundle "
+        "spacing, marker clearance, and rail pitch to match (1.0 = default). "
+        "Keeps a large map legible when it is downscaled to fit a screen.",
+    ),
+    LayoutOption(
+        name="logo_scale",
+        kind="float",
+        sign="positive",
+        help="Scale the logo within the legend block (1.0 = default auto-size).",
+    ),
+    LayoutOption(
+        name="legend_min_height",
+        kind="float",
+        sign="nonneg",
+        help="Minimum legend content height in pixels (useful for single-line "
+        "maps where the logo would otherwise be tiny).",
+    ),
+    LayoutOption(
+        name="legend_logo_gap",
+        kind="float",
+        sign="nonneg",
+        help="Horizontal gap in pixels between the logo and the legend entries.",
+    ),
+    LayoutOption(
+        name="width",
+        kind="int",
+        sign="positive",
+        help="Output width in pixels (default: auto from content).",
+    ),
+    LayoutOption(
+        name="height",
+        kind="int",
+        sign="positive",
+        help="Output height in pixels (default: auto from content).",
+    ),
+    LayoutOption(
+        name="animate",
+        kind="bool",
+        help="Add animated balls traveling along the metro lines.",
+    ),
+    LayoutOption(
+        name="directional",
+        kind="bool",
+        help="Draw static chevrons along each route pointing in the flow "
+        "direction (source to target). Off by default.",
+    ),
+    LayoutOption(
+        name="strict",
+        kind="bool",
+        help="Treat a Tier-A layout-invariant violation on the rendered "
+        "geometry as an error (non-zero exit) instead of a warning.",
+    ),
+    LayoutOption(
+        name="permissive",
+        kind="bool",
+        help="Downgrade layout/render guard failures to warnings and render "
+        "best-effort on whatever geometry was computed, instead of aborting "
+        "with no output. Overrides --strict.",
+    ),
+    LayoutOption(
+        name="auto_process",
+        kind="bool",
+        parse_time=True,
+        help="Map each station to its own id as a default process pattern when "
+        "it has no explicit %%metro process: directive, so a map whose station "
+        "ids already name their Nextflow processes lights up live with no "
+        "per-station mapping. Explicit directives override the default.",
+    ),
+    LayoutOption(
+        name="process_scope",
+        kind="str",
+        parse_time=True,
+        help="Common fully-qualified-name prefix shared by the pipeline's "
+        "processes (e.g. 'NFCORE_RNASEQ:RNASEQ'). Each %%metro process: value is "
+        "then the tail under this scope, joined as '<scope>:<tail>' and matched "
+        "literally - so a pasted process path needs no regex and the prefix is "
+        "written once. Without a scope, process: values stay regexes.",
+    ),
+    LayoutOption(
+        name="manifest",
+        attr="embed_manifest",
+        kind="bool",
+        hidden=True,
+        help="Embed the machine-readable data manifest (the <metadata> block "
+        "and per-node data-node-* attributes) in the SVG. On by default; "
+        "--no-manifest emits the drawn map only.",
+    ),
+    LayoutOption(
+        name="caption",
+        kind="str",
+        help="Free-text caption or attribution line rendered bottom-left of the map "
+        "(e.g. 'Adapted from Author et al., Journal (Year)').",
+    ),
+)

@@ -1,14 +1,8 @@
-ENGINE.visual('p01', (P) => {
-  P.title("贝壳为什么有螺纹", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.rect(260, 220, 1400, 560, { at:-1, color:'ink', sw:3 });
-  P.rect(290, 250, 1340, 500, { at:-1, color:'muted', sw:1.5 });
-  P.path('M880 300 C1180 340 1260 520 880 700 C500 520 580 340 880 300 Z', { at:P.c(0), color:'ink', fill:'redF', sw:2.5 });
-  P.text('?', { x: 880, y: 520, w: 100, align:'c', size: 70, weight:700, at: P.c(1), cps: 4 });
-  P.line(880, 320, 880, 680, { at:P.c(2), color:'blue', sw:2 });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p01', P => {
+  P.nativeScene((N, host) => {
+    const E=N.Engine, c=host.canvas().getContext('2d'), paper=E.paperTexture(), shape=E.engraveShape('M630 760 C320 430 660 190 960 260 C1270 180 1580 500 1240 760 Z');
+    shape.ink.schedule('ol',0,1); shape.ink.schedule('h1',1,3); shape.ink.schedule('h2',3,5); shape.ink.schedule('h3',5,7);
+    return t=>{c.clearRect(0,0,1920,1080);c.fillStyle=E.PAL.paper;c.fillRect(0,0,1920,1080);c.drawImage(paper,0,0);shape.ink.draw(c,t+.2);E.roundelFrame(c,950,510,360);};
+  });
 });

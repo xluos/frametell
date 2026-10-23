@@ -7,7 +7,6 @@ import { bundledSample, ELEVENLABS_DEFAULT_VOICES, ElevenLabsError, elevenLabsTt
 import { BRAND_DIR, Project, STYLES, cleanBrand, cleanLook, openProjectFile, writeIn, type OpenFile, type Renderer, type Timeline } from '@frametell/agent';
 import { linkProject, ENGINE_DIR } from '@frametell/engine/tools/project.mjs';
 import { DATA_DIR, configFile, patchConfig, publicConfig, type ConfigStore } from './config.js';
-import { STYLE_LOOPS } from './style-loops.js';
 import { Projects } from './runner.js';
 import { checkEnv } from './env.js';
 import { applyProxy } from './net.js';
@@ -109,11 +108,9 @@ export class Studio {
   /** the style catalogue, extended with a still for every style whose pack ships one (the desktop panel renders them
    *  as film-strip thumbnails the way the hosted studio does; hosted services may still attach their own poster/loop) */
   styles(): StyleInfo[] {
-    return STYLES.map((s) => {
+    return STYLES.filter(s => !s.hidden).map(({ hidden: _hidden, ...s }) => {
       const poster = fs.existsSync(path.join(ENGINE_STYLE_DIR, s.id, 'poster.jpg')) ? `/api/styles/${s.id}/poster.jpg` : undefined;
-      // the hover loop only plays over a still, so attach it only where there is one
-      const loop = poster ? STYLE_LOOPS[s.id] : undefined;
-      return poster ? { ...s, poster, ...(loop ? { loop } : {}) } : s;
+      return poster ? { ...s, poster } : s;
     });
   }
 

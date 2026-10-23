@@ -29,7 +29,7 @@ const artist = (sent: string[], fix: (n: number, dir: string) => Reply = () => (
 const reviewer = (seen: { text: string; images?: string[]; opts: SessionOptions }[], verdicts: ({ pass: boolean; problems?: { at: number; what: string; fix: string }[] } | null)[]): AgentRuntime => ({
   id: 'pi', model: { provider: 'y', id: 'haiku' },
   async open(opts) {
-    let looks = 0;
+    let looks = seen.filter(s=>s.images).length;
     return { ref: 'v', close: async () => {}, send: async ({ text, images }: { text: string; images?: string[] }) => {
       seen.push({ text, images, opts });
       const v = images ? verdicts[Math.min(looks++, verdicts.length - 1)] : verdicts[Math.min(looks - 1, verdicts.length - 1)];
@@ -52,7 +52,7 @@ function film(pages: AgentRuntime, review: AgentRuntime, issues: (n: number) => 
     snap: async () => 'thumb.jpg', commit: async () => undefined,
     storyboard: () => sb, timeline: async () => ({ duration: 5, pages: [{ id: 'p01', start: 0, end: 5, speechEnd: 4, cues: [] }] }),
   });
-  return { d: d as unknown as { pages(): Promise<void>; state: { pages: Record<string, { status: string; issues: PageIssue[] }> } }, n, dir, events };
+  return { d: d as unknown as { pages(): Promise<void>; review(): Promise<void>; render(): Promise<void>; project: Director['project']; state: { stage: string; pages: Record<string, { status: string; issues: PageIssue[] }> } }, n, dir, events };
 }
 
 const issue = (kind: LintIssue['kind'], level: LintIssue['level'], msg: string): LintIssue => ({ page: 'p01', t: 4.6, t1: 4.6, local: 4.6, kind, level, msg });
@@ -121,13 +121,68 @@ test('a page still failing after its last check is flagged with the reviewer\'s 
   assert.deepEqual(d.state.pages.p01.issues, [{ from: 'review', at: 3, msg: 'still crowded' }]);
 });
 
-test('a reviewer that gives no verdict is asked once more, then the page stands on its lint', async () => {
+test('a reviewer that gives no verdict is asked once more, then the page stays unreviewed', async () => {
   const sent: string[] = [], seen: { text: string; images?: string[]; opts: SessionOptions }[] = [];
   const { d } = film(artist(sent), reviewer(seen, [null]));
   await d.pages();
-  assert.equal(d.state.pages.p01.status, 'ok');
+  assert.equal(d.state.pages.p01.status, 'unreviewed');
   assert.equal(seen.length, 2);
   assert.match(seen[1].text, /calling verdict/);
+  assert.equal(d.state.pages.p01.issues[0].from,'run');
+  await assert.rejects(d.review(),/审图未完成/);
+  assert.equal(d.state.stage,'pages');
+  await assert.rejects(d.render(),/审图未完成/);
+  assert.equal(sent.length,1);
+});
+
+test('continuing an unreviewed page checks the saved draft without asking the artist to redraw', async () => {
+  const sent:string[]=[],seen:{text:string;images?:string[];opts:SessionOptions}[]=[];
+  const {d,n}=film(artist(sent),reviewer(seen,[null,{pass:true}]));
+  await d.pages();assert.equal(d.state.pages.p01.status,'unreviewed');
+  await d.pages();assert.equal(d.state.pages.p01.status,'ok');
+  assert.equal(sent.length,1);assert.equal(n.check,2);
+});
+
+test('a missing layout result cannot be replaced by a passing visual review', async () => {
+  const sent:string[]=[],seen:{text:string;images?:string[];opts:SessionOptions}[]=[];
+  const {d}=film(artist(sent),reviewer(seen,[{pass:true}]));
+  d.project.check=async()=>({issues:[],sheet:'sheet.jpg',lintComplete:false});
+  await d.pages();assert.equal(d.state.pages.p01.status,'unreviewed');
+  assert.equal(seen.length,0);assert.equal(sent.length,1);
+});
+
+for(const invalid of [{pass:'true',problems:[]},{pass:false,problems:[]},{pass:true,problems:null}]) {
+  test(`malformed verdict stays unreviewed: ${JSON.stringify(invalid)}`,async()=>{
+    const bad:AgentRuntime={id:'pi',model:{provider:'y',id:'haiku'},async open(){return {ref:'v',close:async()=>{},send:async()=>({text:'',stopReason:'done',usage:{},answers:[{name:'verdict',args:invalid}]} as never)};}};
+    const {d}=film(artist([]),bad);await d.pages();assert.equal(d.state.pages.p01.status,'unreviewed');
+  });
+}
+
+test('a reviewer service failure preserves a drawn page as unreviewed',async()=>{
+  const down:AgentRuntime={id:'pi',model:{provider:'y',id:'haiku'},async open(){throw new Error('review service unavailable');}};
+  const {d}=film(artist([]),down);await d.pages();assert.equal(d.state.pages.p01.status,'unreviewed');
+});
+
+test('layout alignment errors survive a visual pass and enlarged details reach the reviewer',async()=>{
+  const sent:string[]=[],seen:{text:string;images?:string[];opts:SessionOptions}[]=[];
+  const {d}=film(artist(sent),reviewer(seen,[{pass:true}]));
+  d.project.check=async()=>({issues:[issue('alignment','error','label is off-centre')],sheet:'sheet.jpg',details:'details.jpg'});
+  await d.pages();assert.equal(d.state.pages.p01.status,'flagged');
+  assert.equal(d.state.pages.p01.issues[0].from,'lint');
+  assert.deepEqual(seen[0].images,['sheet.jpg','details.jpg']);
+});
+
+test('whole-film edits invalidate the earlier visual pass and preserve the page for another check',async()=>{
+  const sent:string[]=[],seen:{text:string;images?:string[];opts:SessionOptions}[]=[];
+  const {d}=film(artist(sent,(n,dir)=>{if(n>1)edit(dir,'whole-film edit');return {}; }),reviewer(seen,[{pass:true}]),()=>[issue('alignment','error','label off-centre')]);
+  await d.pages();assert.equal(d.state.pages.p01.status,'flagged');
+  await assert.rejects(d.review(),/审图未完成/);
+  assert.equal(d.state.pages.p01.status,'unreviewed');assert.equal(d.state.stage,'pages');
+});
+
+test('whole-film checks cannot mark unresolved alignment errors as ready',async()=>{
+  const {d}=film(artist([]),reviewer([],[{pass:true}]),()=>[issue('alignment','error','label off-centre')]);
+  await d.pages();await assert.rejects(d.review(),/全片检查未通过/);
 });
 
 test('the reviewer\'s words never reach the people watching; its turns are still counted', async () => {

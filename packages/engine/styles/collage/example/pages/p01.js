@@ -1,15 +1,7 @@
-ENGINE.visual('p01', (P) => {
-  P.title("旧报纸里的头条说了什么", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.path('M300 260 L700 250 L720 520 L290 540 Z', { at:-1, color:'ink', fill:'yellowF' });
-  P.path('M1080 300 L1500 280 L1480 560 L1060 540 Z', { at:-1, color:'ink', fill:'paper' });
-  P.rect(760, 380, 360, 300, { r: 4, at:P.c(0), color:'red', fill:'redF' });
-  P.rect(900, 360, 90, 34, { at:P.c(0,0.2), color:'yellow', fill:'yellowF' });
-  P.text('?', { x: 940, y: 580, w: 120, align:'c', size: 90, weight:700, at: P.c(1), cps: 6 });
-  P.arrow(1120, 600, 1400, 660, { at: P.c(2), color: 'yellow' });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p01', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');N.U.setStage(host.width,host.height);
+    return t=>{c.fillStyle='#d8cbbb';c.fillRect(0,0,1920,1080);N.CL.placed(c,430,280,-.08,g=>{N.CL.tornRect(g,700,490,4,12);g.fillStyle='#f5edda';g.fill();N.TY.text(g,'A piece of evidence',50,160,{size:54,fam:'serif',align:'left'});});N.CL.tape(c,770,265,-.08,180);N.CL.highlight(c,470,520,560,70,Math.min(1,.1+t/3));};
+  });
 });

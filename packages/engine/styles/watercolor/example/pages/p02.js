@@ -1,16 +1,8 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'blue' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.ellipse(520, 470, 400, 300, { at:P.c(0), color:'green', fill:'greenF' });
-  P.ellipse(880, 470, 400, 300, { at:P.c(1), color:'blue', fill:'blueF' });
-  P.ellipse(1240, 470, 400, 300, { at:P.c(1,0.5), color: i_col(), fill: i_col('F') });
-  P.rect(830, 560, 60, 200, { r: 12, at:-1, color:'ink', fill:'inkF' });
-  P.arrow(620, 720, 760, 720, { at: P.c(2), color:'muted' });
-  P.arrow(980, 720, 1120, 720, { at: P.c(2,0.4), color:'muted' });
-  function i_col(){ return 'green'; }
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');
+    const strokes=N.withSeed(82,()=>Array.from({length:24},(_,i)=>N.mk(N.qcurve(490+i*38,760,720+i*17,260,110,32),36,['#869f83','#b2c2a4','#d7b567'][i%3],{nb:8,a:.5,prof:'leaf'})));
+    return t=>{c.fillStyle=N.PAPER;c.fillRect(0,0,1920,1080);N.drawList(c,strokes,Math.min(1,.1+Math.max(0,t)/6));};
+  });
 });

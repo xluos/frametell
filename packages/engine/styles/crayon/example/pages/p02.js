@@ -1,16 +1,14 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.path('M520 470 L880 250 L1240 470 Z', { at:-1, color:'faint', sw:5 });
-  P.rect(580, 470, 600, 280, { at:-1, color:'faint', sw:5 });
-  P.circle(1380, 300, 130, { at:P.c(0), color:'blue', sw:6 });
-  P.circle(1380, 300, 90, { at:P.c(1), color:'paper', sw:5 });
-  P.arrow(1240, 420, 1080, 500, { at:P.c(2), color:'red' });
-  P.path('M520 470 L880 250 L1240 470 Z', { at:P.c(2,0.2), color:'blue', fill:'blueF', sw:5 });
-  P.text('被盖住', { x: 400, y: 360, w: 240, size: 38, at:P.c(2,0.4), cps:4 });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N, host) => {
+    const {C,GL,Rig,Palette}=N, cv=host.canvas('webgl2','gl'), comp=GL.makeComp(cv), actor=Rig.group(), wash=C.layer();
+    return t=>{
+      Object.assign(C.CAM,{x:960,y:540,s:1}); C.BOIL.step=Math.floor(t*12); Rig.clearGroup(actor); C.clear(wash);
+      const outline=C.handCircle(790,500,230,7,0,80);
+      Rig.part(actor,outline,{col:Palette.PAL.crayon.yellow,w:20},{col:Palette.PAL.crayon.ink,w:7});
+      C.line(actor.l,[[630,520],[760,650],[1110,330]],{col:Palette.PAL.crayon.white,w:25});
+      wash.g.fillStyle='rgba(30,40,90,.8)'; wash.g.fillRect(360,230,Math.min(1,.15+Math.max(0,t)/5)*1200,560);
+      comp.paperCam(960,540,1); comp.begin(Palette.PAL.paper); comp.group(actor); comp.wash(wash.c,{color:Palette.PAL.wash,resist:.93,edge:1.6,gran:.6}); comp.finish();
+    };
+  });
 });

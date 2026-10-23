@@ -1,7 +1,7 @@
 import type zh from '../zh/stage';
 
 const en: typeof zh = {
-  status: { queued: 'Queued', drawing: 'Drawing', checking: 'Checking its work', ok: 'Done', flagged: 'One thing needs your eye', failed: "Couldn't draw this one" },
+  status: { queued: 'Queued', drawing: 'Drawing', checking: 'Checking its work', ok: 'Done', flagged: 'Check not passed', unreviewed: 'Visual review incomplete', failed: "Couldn't draw this one" },
   paused: 'Paused',
   stageRunning: '{stage} in progress',
   awaitingApproval: 'Waiting for your storyboard sign-off',

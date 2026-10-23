@@ -154,7 +154,7 @@ const MAX = { pageLintMs: 90_000, pagesAtOnce: 10, storyboardFix: 2, scriptFix: 
 /** the reviewer looks at one sheet and answers: little thinking, quickly */
 const REVIEWER_THINKING: Thinking = 'low';
 /** what breaks a film whatever it looks like: the whole-film check's 'defects' mode takes only these */
-const DEFECTS: LintKind[] = ['runtime', 'api', 'nondeterministic', 'palette'];
+const DEFECTS: LintKind[] = ['runtime', 'api', 'nondeterministic', 'palette', 'alignment'];
 /** findings that mean the page's code does not run as written: such a page is not drawn */
 const BROKEN: LintKind[] = ['runtime', 'api'];
 const errorsOf = (issues: LintIssue[]) => issues.filter((i) => i.level === 'error');
@@ -499,7 +499,7 @@ export class Director {
     // conversations are kept, so each picks up at the check it was in. Drawn again from nothing, they were paid twice
     this.inChecks = new Map(todo.flatMap((p) => {
       const was = this.state.pages[p.id];
-      return was?.status === 'checking' && was.ref && was.rounds > 0 && !this.state.revision?.[p.id] && this.project.exists(`pages/${p.id}.js`) ? [[p.id, { ref: was.ref, rounds: was.rounds }]] : [];
+      return was && ['checking','unreviewed'].includes(was.status) && was.ref && was.rounds > 0 && (was.status==='unreviewed' || !this.state.revision?.[p.id]) && this.project.exists(`pages/${p.id}.js`) ? [[p.id, { ref: was.ref, rounds: Math.min(was.rounds,MAX.pageChecks) }]] : [];
     }));
     for (const p of todo) this.setPage(p.id, { status: 'queued', rounds: 0, issues: [], failures: failures(p.id) });
     const queue = [...todo];
@@ -562,15 +562,15 @@ export class Director {
   }
 
   /**
-   * The reviewer's verdict on a page's sheet; undefined when it gives none (asked twice) or its model fails: the page
-   * then stands on its lint alone, as a review that cannot be had must not hold the film.
+   * A valid explicit verdict. Missing, malformed or failed reviews leave the page unreviewed and can be resumed.
    */
-  private async verdict(reviewer: AgentSession, prompt: string, sheet: string): Promise<{ pass: boolean; problems: Problem[] } | undefined> {
+  private async verdict(reviewer: AgentSession, prompt: string, sheet: string, details?: string): Promise<{ pass: boolean; problems: Problem[] } | undefined> {
     try {
-      let r = await this.send(reviewer, prompt, [sheet], REVIEWER_THINKING);
+      let r = await this.send(reviewer, prompt + (details ? '\nThe second image enlarges labels and annotations from these same moments. Check their visual centres and underline alignment.' : ''), [sheet, ...(details ? [details] : [])], REVIEWER_THINKING);
       if (!r.answers.length && r.stopReason === 'done') r = await this.send(reviewer, verdictAgain, undefined, REVIEWER_THINKING);
       const a = r.answers.find((x) => x.name === VERDICT.name)?.args as { pass: boolean; problems: Problem[] } | undefined;
-      return a && { pass: a.pass, problems: a.pass ? [] : a.problems };
+      if (!a || typeof a.pass !== 'boolean' || !Array.isArray(a.problems) || !a.problems.every(p=>p && Number.isFinite(p.at) && typeof p.what==='string' && typeof p.fix==='string') || (a.pass ? a.problems.length>0 : !a.problems.length)) return undefined;
+      return { pass: a.pass, problems: a.pass ? [] : a.problems };
     } catch (e) {
       if (stopped(e)) throw e;
       return undefined;
@@ -588,7 +588,7 @@ export class Director {
       const fix = this.state.revision?.[id];
       // a revision's page already exists, so "is there a file" says nothing: what tells is whether the code changed
       // (seen: a revision whose edits never landed was checked, passed and shown as done, on the old page)
-      const before = fix && !this.wordsChanged ? this.project.read(`pages/${id}.js`) : undefined;
+      const before = fix && !this.wordsChanged && !was ? this.project.read(`pages/${id}.js`) : undefined;
       const unchanged = () => before !== undefined && this.project.read(`pages/${id}.js`) === before;
       let r: TurnResult | undefined, declined: string | undefined;
       if (!was) {
@@ -607,11 +607,11 @@ export class Director {
       // to its agent, and the page is checked again. `checked`: the page's code as it was at the last check, and
       // `issues` / `verdict` what that check found
       const code = () => this.project.read(`pages/${id}.js`);
-      let issues: LintIssue[] = [], verdict: { pass: boolean; problems: Problem[] } | undefined, checked: string | undefined;
+      let issues: LintIssue[] = [], verdict: { pass: boolean; problems: Problem[] } | undefined, checked: string | undefined, lintComplete = true;
       let reviewer: AgentSession | undefined;
       const checks = fix ? MAX.revisionChecks : MAX.pageChecks;
       try {
-        for (let round = was?.rounds ?? 1; !declined && round <= checks; round++) {
+        for (let round = was ? Math.min(was.rounds,checks) : 1; !declined && round <= checks; round++) {
           st.status = 'checking'; st.rounds = round; this.setPage(id, st);
           const times = this.sheetTimes(sb, t);
           const c = await this.project.check(id, `${id}-r${round}`, times.map((x) => x.t), { determinism: true, lintMs: MAX.pageLintMs });
@@ -627,11 +627,16 @@ export class Director {
             continue;
           }
           this.setPage(id, { ...st, issues: issues.map(fromLint) }, { sheet: c.sheet });
+          lintComplete = c.lintComplete !== false;
+          if (!lintComplete) break;
           const change = unchanged() ? fix : undefined;
-          reviewer ??= await this.session(`check-${id}`, reviewerSystem(this.o.style, this.o.brief.styleNotes, this.designed()?.card), MAX.reviewerTurns, undefined, undefined, { tools: 'none', answers: [VERDICT] });
-          verdict = await this.verdict(reviewer, reviewerPrompt(sb, id, t, round, issues, times, change, this.o.brief.brand), c.sheet);
+          try {
+            reviewer ??= await this.session(`check-${id}`, reviewerSystem(this.o.style, this.o.brief.styleNotes, this.designed()?.card), MAX.reviewerTurns, undefined, undefined, { tools: 'none', answers: [VERDICT] });
+            verdict = await this.verdict(reviewer, reviewerPrompt(sb, id, t, round, issues, times, change, this.o.brief.brand), c.sheet, c.details);
+          } catch(e) { if(stopped(e)) throw e; break; }
+          if (!verdict) break;
           const errors = errorsOf(issues), problems = verdict?.pass === false ? verdict.problems : [];
-          if (!errors.length && !problems.length) { st.status = 'ok'; st.issues = []; break; }
+          if (!errors.length && verdict.pass) { st.status = 'ok'; st.issues = []; break; }
           if (round === checks) break;
           r = await this.send(s, fixPrompt(round, errors, problems, times, change) + this.unseen(`page-${id}`), [c.sheet], PAGE_THINKING);
           await this.commit(this.say(`${id}：第 ${round} 轮修改`, `${id}: check round ${round}`));
@@ -648,14 +653,15 @@ export class Director {
       if (code() !== checked && !declined) {
         issues = await this.project.lint([id], [], MAX.pageLintMs).catch((e) => { throw stopped(e) ? e : new Error(crashText((e as Error).message, id)); });
         verdict = undefined;
+        if (st.status === 'ok') st.status = 'checking';
       }
       // still throwing, or calling what the engine does not have: the page is not drawn, whatever else it shows
       const broken = issues.filter((i) => BROKEN.includes(i.kind));
       if (broken.length) throw new Error(broken.map((i) => i.msg).join('\n'));
       if (st.status !== 'ok' && st.status !== 'flagged') {
         const errors = errorsOf(issues), problems = verdict?.pass === false ? verdict.problems : [];
-        st.status = errors.length || problems.length ? 'flagged' : 'ok';
-        st.issues = [...errors.map(fromLint), ...problems.map(fromReview)];
+        st.status = !lintComplete || !verdict ? 'unreviewed' : errors.length || problems.length ? 'flagged' : 'ok';
+        st.issues = [...errors.map(fromLint), ...problems.map(fromReview), ...(st.status === 'unreviewed' ? [{from:'run' as const,kind:'not-reviewed' as const,msg:lintComplete ? 'Visual review did not return a valid verdict; continue to retry the check.' : 'Layout check did not complete; continue to retry the check.'}] : [])];
       }
       // the change never landed: the page is as it was, which is not what the user asked for, whatever the checks said
       if (unchanged()) {
@@ -677,6 +683,11 @@ export class Director {
 
   // ── ⑤ review ─────────────────────────────────────────────────────────────────────────────────
   async review() {
+    const unreviewed = Object.entries(this.state.pages).filter(([,s])=>s.status==='unreviewed').map(([id])=>id);
+    if (unreviewed.length) {
+      this.state.stage='pages'; this.save();
+      this.fail('review',this.say(`审图未完成：${unreviewed.join('、')}。页面已保留，点继续会重试检查。`,`Visual review incomplete: ${unreviewed.join(', ')}. Pages are kept; continue to retry their checks.`));
+    }
     this.emit({ type: 'stage', stage: 'review', status: 'start' });
     this.state.stage = 'review'; this.save();
     const defectsOnly = this.o.review === 'defects';
@@ -691,6 +702,7 @@ export class Director {
       return this.ready();
     }
     const tl = await this.project.timeline();
+    const reviewedCode = new Map(tl.pages.map(p=>[p.id,this.project.read(`pages/${p.id}.js`)]));
     const sheet = await this.project.snap('review', tl.pages.flatMap((p) => [(p.start + p.end) / 2, p.end - 0.35]), undefined, 400);
     // defects mode stops on a timer of its own, keeping what it fixed so far; a stop by the user still stops the run
     const limit = defectsOnly ? new AbortController() : undefined;
@@ -712,6 +724,17 @@ export class Director {
       clearTimeout(timer);
       await s.close();
     }
+    const changed = tl.pages.filter(p=>this.project.read(`pages/${p.id}.js`)!==reviewedCode.get(p.id));
+    if (changed.length) {
+      for (const p of changed) {
+        const was=this.state.pages[p.id];
+        this.setPage(p.id,{...was,status:'unreviewed',rounds:was?.rounds||1,issues:[{from:'run',kind:'not-reviewed',msg:'The whole-film check changed this page; its new picture needs review.'}]});
+      }
+      this.state.stage='pages';this.save();
+      this.fail('review',this.say('全片检查改动了画面，审图未完成。修改已保留，点继续检查新画面。','The whole-film check changed the picture; visual review is incomplete. Changes are kept; continue to check the new picture.'));
+    }
+    const remaining=errorsOf(await this.project.lint(undefined,['--determinism'])).filter(i=>!defectsOnly||DEFECTS.includes(i.kind));
+    if (remaining.length) this.fail('review',this.say(`全片检查未通过：${remaining.map(i=>i.page).filter((id,i,a)=>a.indexOf(id)===i).join('、')}。问题仍未修好，页面已保留。`,`Whole-film checks still fail: ${remaining.map(i=>i.page).join(', ')}. Pages are kept.`));
     this.emit({ type: 'stage', stage: 'review', status: 'done', ...(timedOut ? { detail: this.say('全片检查到了时间上限，已保留改好的部分', 'The whole-film check reached its time limit; what it fixed is kept') } : {}) });
     return this.ready();
   }
@@ -726,6 +749,7 @@ export class Director {
   // ── ⑥ render (export) ────────────────────────────────────────────────────────────────────────
   /** the film as mp4, on export. The stage is left as it was: exporting is not a step of making the film */
   async render(o: { workers?: number } = {}) {
+    if (Object.values(this.state.pages ?? {}).some(s=>s.status==='unreviewed')) this.fail('render',this.say('审图未完成，请先点继续重试检查','Visual review incomplete; continue to retry the checks before exporting'));
     this.emit({ type: 'stage', stage: 'render', status: 'start' });
     this.serverMeta();
     // a narrated film must carry its narration: check before spending minutes on frames

@@ -1,29 +1,23 @@
-# Antique Map · grammar card
+# 沿真实海岸航行 · local renderer grammar
 
-This pack draws on: Coastlines, rivers and borders from Natural Earth (public domain) via world-atlas (ISC, © 2013-2019 Michael Bostock). Techniques adapted, not copied; follow that project's own licence for anything beyond these rules.
+世界海岸来自公开地图数据，船只沿路线前进。
 
-## In one sentence
+## Drawing contract
 
-An old chart on parchment: a route inks itself across the sea with a little ship sailing at its head, and a realm\'s colour spreads over the land year by year.
+- Paper #EBDDBC; legible ink #2B1D12. Palette names are literal: red is red, blue is blue, orange is orange. Keep a colour's meaning consistent across the film. Do not remap named colours to the order of a swatch.
+- Surface: engraving. The kit is a local implementation, with the source techniques identified in the provenance document.
+- The bundled Natural Earth overview omits small islands. Do not invent borders or use it for navigation.
+- Use the style kit below to build the subject. It is automatically loaded for preview and export. Reuse one actor/object geometry across pages; move its layer, rather than redrawing it differently each time.
 
-## Picture
+## Available components
 
-- **Ground and ink.** Paper #EBDDBC, ink #2B1D12; the picture sits in a generous margin. A colour means one thing for the whole film: red = the lead accent (the answer, the main path); green = the second accent (support and comparison).
-- **Line.** Aged paper, coastlines and borders in sepia ink, a compass rose, one route in colour.
-- Keep text short: an element at most 8 Chinese characters (about 4 English words); body text at least 36px, labels at least 28px. Numbers and names sit on the object they describe.
+- `P.mapRoute(points, o = {})`: A ship traces a historical route; points must come from real map geography. This component does not invent coastlines.
+- `P.worldMap(o = {})`: Natural Earth land outlines. o: x,y,w,h,at; returns project([lon,lat]). Small islands omitted; never use for borders or navigation.
 
-## Motion and camera
+## Motion, readability and review
 
-- Every change is drawn while it is spoken; nothing important appears all at once. One visible change every 2–4 seconds; the page settles for about a second before it turns.
-- The camera holds wide by default and pushes briefly into the key change. 
-- No idle looping, floating particles or bouncy decoration.
-
-## Pacing
-
-Good for: 航海与贸易史、战争与帝国兴衰、地缘与城市为何在此. 10–20 seconds per page, 3–5 pages a minute. Open on the concrete situation, end on the changed state that answers the opening question.
-
-## Never
-
-- A title plus three cards with arrows (a slide deck); a page filled with small text; neon/glow where the style is paper-based.
-- More than two accent colours on one screen; faces unless the grammar card above says the style draws characters.
-- Photos, 3D, and effects from another style.
+- Tie each meaningful change to the spoken cue using P.c/P.cw. Show the actual transfer, assembly or state change; the spoken cause must be visible.
+- Body text at least 36px, labels at least 28px. Keep actors, labels and any camera move within x=180..1740, y=220..880 in landscape. Leave the subtitle area clear. Verify camera crops as well as the static layout.
+- Colours, material, recurring actor shape, the mechanism, cropping, overlap, subtitles and deterministic seeking are separate review assertions. Passing a layout check alone does not verify the style.
+- Use 45/90-degree bends for metro routes; one continuous stroke for one-line; integer counts with stated units for isotype; real projection and face shading for isometric/instrument/inked. Use only constraints relevant to this style.
+- Keep any unsupported visual request explicit in the storyboard and author the missing capability before rendering. A hosted poster or hover clip cannot substitute for a local sample.

@@ -1,15 +1,7 @@
-ENGINE.visual('p03', (P) => {
-  P.title("原来如此", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.rect(206, 286, 28, 28, { at: -1, color: 'faint' });
-  P.rect(206, 746, 28, 28, { at: -1, color: 'faint' });
-  P.rect(1686, 286, 28, 28, { at: -1, color: 'faint' });
-  P.rect(1686, 746, 28, 28, { at: -1, color: 'faint' });
-  P.rect(560, 280, 640, 460, { at:-1, color:'ink', sw:3 });
-  P.line(560, 400, 1200, 400, { at:-1, color:'muted', sw:2, dashed:true });
-  P.line(880, 280, 880, 740, { at:-1, color:'muted', sw:2, dashed:true });
-  P.text('✓', { x: 880, y: 560, w: 100, align:'c', size: 80, weight:700, at: P.c(0), cps: 4 });
-  P.rect(700, 620, 360, 100, { at:P.c(1), color:'yellow', sw:2.5 });
-  P.line(620, 260, 620, 760, { at:P.c(2), color:'yellow', sw:2, dashed:true });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p03', P => {
+  P.nativeScene((N, host) => {
+    const D=N.Draw,cv=host.canvas('webgl2'),paper=N.Paper.makePaper(cv,1920,1080);
+    return t=>{D.setCam({x:960,y:540,z:1,r:0});D.clear();D.proj.k=.3;D.line(D.gearPts(960,510,20,13,t*.07),{w:3.2,u:1});D.circ(960,510,88);D.line(D.circ(960,510,88),{w:2,u:1});D.dim([600,800],[1320,800],80,'720',{size:40});paper(D.inkC,D.fxC,D.ovC,{sheet:[1920,1080],cam:D.cam,seed:4});};
+  });
 });

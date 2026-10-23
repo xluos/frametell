@@ -1,29 +1,23 @@
-# Screencast · grammar card
+# 点击之后有反馈 · local renderer grammar
 
-An original pack for the open-source Studio.
+光标进入按钮，点击之后状态改变。
 
-## In one sentence
+## Drawing contract
 
-A polished product demo: the cursor glides to a control and clicks, the camera eases in as the app answers, then pulls back to show the result.
+- Paper #E4E8F0; legible ink #151823. Palette names are literal: red is red, blue is blue, orange is orange. Keep a colour's meaning consistent across the film. Do not remap named colours to the order of a swatch.
+- Surface: flat. The kit is a local implementation, with the source techniques identified in the provenance document.
+- The browser component is a drawn UI shell. Use actual screen media when the film promises a real product recording.
+- Use the style kit below to build the subject. It is automatically loaded for preview and export. Reuse one actor/object geometry across pages; move its layer, rather than redrawing it differently each time.
 
-## Picture
+## Available components
 
-- **Ground and ink.** Paper #E4E8F0, ink #FFFFFF; the picture sits in a generous margin. A colour means one thing for the whole film: blue = the lead accent (the answer, the main path); green = the second accent (support and comparison).
-- **Line.** A real product screen: browser chrome, a cursor, menus and popovers drawn crisply.
-- Keep text short: an element at most 8 Chinese characters (about 4 English words); body text at least 36px, labels at least 28px. Numbers and names sit on the object they describe.
+- `P.browserWindow(x, y, w = 1050, h = 540, o = {})`: A drawn browser shell; real screen recording uses the media API.
+- `P.cursorClick(points, o = {})`: Cursor travels along [x,y] points and clicks the destination. o: at,dur.
 
-## Motion and camera
+## Motion, readability and review
 
-- Every change is drawn while it is spoken; nothing important appears all at once. One visible change every 2–4 seconds; the page settles for about a second before it turns.
-- The camera holds wide by default and pushes briefly into the key change. The cursor really moves and clicks; menus open and close.
-- No idle looping, floating particles or bouncy decoration.
-
-## Pacing
-
-Good for: 软件教程、产品功能演示、AI 工具与办公技巧. 10–20 seconds per page, 3–5 pages a minute. Open on the concrete situation, end on the changed state that answers the opening question.
-
-## Never
-
-- A title plus three cards with arrows (a slide deck); a page filled with small text; neon/glow where the style is paper-based.
-- More than two accent colours on one screen; faces unless the grammar card above says the style draws characters.
-- Photos, 3D, and effects from another style.
+- Tie each meaningful change to the spoken cue using P.c/P.cw. Show the actual transfer, assembly or state change; the spoken cause must be visible.
+- Body text at least 36px, labels at least 28px. Keep actors, labels and any camera move within x=180..1740, y=220..880 in landscape. Leave the subtitle area clear. Verify camera crops as well as the static layout.
+- Colours, material, recurring actor shape, the mechanism, cropping, overlap, subtitles and deterministic seeking are separate review assertions. Passing a layout check alone does not verify the style.
+- Use 45/90-degree bends for metro routes; one continuous stroke for one-line; integer counts with stated units for isotype; real projection and face shading for isometric/instrument/inked. Use only constraints relevant to this style.
+- Keep any unsupported visual request explicit in the storyboard and author the missing capability before rendering. A hosted poster or hover clip cannot substitute for a local sample.

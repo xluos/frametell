@@ -1,16 +1,7 @@
-ENGINE.visual('p01', (P) => {
-  P.title("过马路要看哪里", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  for(let a=0;a<12;a++){const ang=a/12*Math.PI*2;P.line(1480,360+Math.sin(ang)*60,1480+Math.cos(ang)*120,360+Math.sin(ang)*120,{at:-1,color:'blue',sw:4});}
-  P.circle(1480,360,70,{at:-1,color:'blue',fill:'blueF'});
-  P.circle(620, 420, 90, { at:P.c(0), color:'red', sw:4 });
-  P.path('M620 510 L520 700 L720 700 Z', { at:P.c(0,0.2), color:'red', fill:'redF' });
-  P.text('?', { x: 620, y: 450, w: 80, align:'c', size: 60, weight:700, at: P.c(1), cps: 4 });
-  P.arrow(720, 560, 1080, 560, { at:P.c(2), color:'blue' });
-  P.rect(1080, 470, 260, 180, { at:P.c(2,0.2), color:'ink', fill:'paper' });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p01', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d'),T=N.T;
+    return t=>{T.setClock(t);c.fillStyle='#f1e8cd';c.fillRect(0,0,1920,1080);T.shape(c,T.rect(330,260,1100,530),{fill:'#8ea87c',lineColor:'#25271f',line:5,seed:2});T.shape(c,T.ellipse(1350,380,145,145),{fill:'#e6b64b',lineColor:'#25271f',line:5,seed:7});T.text(c,'OBSERVE',570,565,{font:'90px serif',fill:'#25271f',plate:'#d1583b'});};
+  });
 });

@@ -118,12 +118,12 @@
         for (const set of it.sets) {
           const d = gen.opsToPath(set, 2);
           if (set.type === 'fillPath') {
-            const el = s('path', { d, fill: op.fill, stroke: 'none', filter: 'url(#wc)' });
+            const el = s('path', { d, fill: op.fill, stroke: 'none', filter: 'url(#wc)', ...PV.materialAttrs?.('fillPath', op) });
             fills.push(el);
           } else {
             const hatchSet = set.type === 'fillSketch' || it.__hatch;
             const el = s('path', { d, fill: 'none', stroke: hatchSet ? op.fill : op.stroke, 'stroke-width': hatchSet ? op.fillWeight : op.strokeWidth,
-              'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+              'stroke-linecap': 'round', 'stroke-linejoin': 'round', ...PV.materialAttrs?.(set.type, op) });
             if (it.__op != null) el.setAttribute('opacity', it.__op);
             (hatchSet ? hatch : strokes).push(el);
           }

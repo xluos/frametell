@@ -1,13 +1,8 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.path('M880 300 C1180 340 1260 520 880 700 C500 520 580 340 880 300 Z', { at:-1, color:'ink', fill:'paper', sw:2.5 });
-  for (let i=0;i<9;i++){ const k=i/8; P.path(`M${600+k*280} 680 Q880 ${640-i*36} ${1160-k*280} 680`,{at:P.c(1)+i*0.12,color:i>5?'red':'muted',sw:2}); }
-  P.line(880, 320, 880, 680, { at:P.c(2), color:'blue', sw:2 });
-  P.text('越密越鼓', { x: 1240, y: 300, w: 280, size: 34, color:'blue', at:P.c(2), cps:5 });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N, host) => {
+    const E=N.Engine, c=host.canvas().getContext('2d'), paper=E.paperTexture(), shape=E.engraveShape('M630 760 C320 430 660 190 960 260 C1270 180 1580 500 1240 760 Z');
+    shape.ink.schedule('ol',0,1); shape.ink.schedule('h1',1,3); shape.ink.schedule('h2',3,5); shape.ink.schedule('h3',5,7);
+    return t=>{c.clearRect(0,0,1920,1080);c.fillStyle=E.PAL.paper;c.fillRect(0,0,1920,1080);c.drawImage(paper,0,0);shape.ink.draw(c,t+.2);E.roundelFrame(c,950,510,360);};
+  });
 });

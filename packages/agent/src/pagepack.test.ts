@@ -12,3 +12,14 @@ test('the warm-story pack lists every component with its doc and carries a bench
 test('a style without components or example yields only the header', () => {
   assert.ok(pagePack('study', []).length < 400);   // the English header alone is about 250 characters
 });
+
+test('native style components are supplied without META.extras', () => {
+  for (const [style, name] of [['crayon', 'crayonScene'], ['metro', 'metroRoute'], ['mascot', 'mascot'], ['inked', 'inkedBox'], ['instrument', 'isoBlock']]) {
+    assert.ok(pagePack(style, []).includes(`P.${name}(`), `${style} kit is missing from the agent context`);
+  }
+});
+
+test('a kit already present in extras is documented once', () => {
+  const pack = pagePack('metro', ['engine/styles/metro/kit.js']);
+  assert.equal(pack.split('`P.metroRoute(').length - 1, 1);
+});

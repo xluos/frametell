@@ -1,10 +1,35 @@
-/* Clay Studio · benchmark film for the open-source Studio. Drawn to styles/clay/GRAMMAR.md; also this style's regression test. */
-(function (root) {
-  const META = { style: 'clay', title: "压力怎么让球变形", name: "clay", gap: 0.6 };
-  const PAGES = [
-    { id: 'p01', section: '问题', title: "压力怎么让球变形", cues: [ "压力怎么让球变形？", "先别急着回答。", "我们把它摆到眼前看。" ] },
-    { id: 'p02', section: '过程', title: '怎么发生', cues: [ "小球落下", "被地面挤扁", "又慢慢鼓回来" ] },
-    { id: 'p03', section: '答案', title: '原来如此', cues: [ "软", "是因为它愿意变形。", "这就是答案" ] },
-  ];
-  root.SCRIPT = { META, PAGES };
+/* Local renderer capability benchmark, not a hosted Frametell film. */
+(function(root){
+  root.SCRIPT={META:{style:'clay',title:"捏出来的角色",name:'clay',gap:.6},PAGES:[
+  {
+    "id": "p01",
+    "section": "建立场景",
+    "title": "捏出来的角色",
+    "cues": [
+      "软圆的身体落地，影子接住重量。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  },
+  {
+    "id": "p02",
+    "section": "观察动作",
+    "title": "捏出来的角色",
+    "cues": [
+      "软圆的身体落地，影子接住重量。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  },
+  {
+    "id": "p03",
+    "section": "确认结果",
+    "title": "捏出来的角色",
+    "cues": [
+      "软圆的身体落地，影子接住重量。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  }
+]};
 })(typeof window !== 'undefined' ? window : globalThis);

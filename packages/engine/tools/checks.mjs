@@ -29,11 +29,24 @@ export async function lintPages(page, { L, pages, step = 0.5, minFont = 24, dete
     ENGINE.renderAt(t);
     const root = document.querySelector(`#stage .page[data-page="${id}"]`);
     if (!root) return -1;
-    const op = (n) => { let o = 1; for (; n && n !== root.parentElement; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
+    const op = (n) => PV.sceneOpacity(n, root.parentElement);
     let n = 0;
-    for (const el of root.querySelectorAll('path, line, rect, circle, ellipse, polyline, polygon, img, canvas, .tx')) {
+    for (const el of PV.sceneElements(root, 'path, line, rect, circle, ellipse, polyline, polygon, img, canvas, .tx, text, span, pre')) {
       const r = el.getBoundingClientRect();
       if (r.width * r.height < 4 || op(el) < 0.3) continue;
+      if (['SPAN','PRE','text'].includes(el.tagName) && !el.textContent.trim()) continue;
+      if (el.tagName === 'CANVAS') {
+        {
+          // A mounted pressure layer can still be completely transparent before or after its drawing.
+          // Cross-origin canvases cannot expose their pixels; preserve the geometry check for those.
+          try {
+            const pixels = PV.scenePixels(el);
+            let painted = false;
+            for (let i = 3; i < pixels.length; i += 4) if (pixels[i] >= 32) { painted = true; break; }
+            if (!painted) continue;
+          } catch { /* tainted canvas: pixel inspection is unavailable */ }
+        }
+      }
       if (el.classList.contains('tx') && ![...el.querySelectorAll('.ch')].concat(el.querySelector('.ch') ? [] : [el]).some((c) => op(c) >= 0.3 && c.textContent.trim())) continue;
       n++;
     }
@@ -92,7 +105,22 @@ export async function lintPages(page, { L, pages, step = 0.5, minFont = 24, dete
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, textArea = 0;
       for (const el of root.querySelectorAll('path, rect, circle, ellipse, polygon, img, canvas, .tx')) {
         if (op(el) < 0.3) continue;
-        const r = el.getBoundingClientRect();
+        let r = el.getBoundingClientRect();
+        if (el.tagName === 'CANVAS') {
+          // Full-size transparent drawing canvases contain objects, not necessarily full-bleed backgrounds.
+          const ctx = el.getContext('2d');
+          if (ctx) try {
+            const w = el.width, h = el.height, pixels = ctx.getImageData(0, 0, w, h).data;
+            let ax = w, ay = h, bx = 0, by = 0;
+            for (let y = 0; y < h; y += 3) for (let x = 0; x < w; x += 3) {
+              if (pixels[(y * w + x) * 4 + 3] < 32) continue;
+              ax = Math.min(ax, x); ay = Math.min(ay, y); bx = Math.max(bx, x + 3); by = Math.max(by, y + 3);
+            }
+            if (bx <= ax || by <= ay) continue;
+            const left = r.left + ax / w * r.width, top = r.top + ay / h * r.height;
+            r = { left, top, right: r.left + bx / w * r.width, bottom: r.top + by / h * r.height };
+          } catch { /* tainted canvas: retain its geometry instead of aborting every page's checks */ }
+        }
         const b = { x0: Math.max(A.x0, r.left - frame.left), y0: Math.max(A.y0, r.top - frame.top), x1: Math.min(A.x1, r.right - frame.left), y1: Math.min(A.y1, r.bottom - frame.top) };
         if (b.x1 - b.x0 < 2 || b.y1 - b.y0 < 2) continue;
         if (b.x1 - b.x0 > 0.97 * (A.x1 - A.x0) && b.y1 - b.y0 > 0.97 * (A.y1 - A.y0)) continue;   // full-bleed backgrounds don't count as content
@@ -102,8 +130,9 @@ export async function lintPages(page, { L, pages, step = 0.5, minFont = 24, dete
       const area = (A.x1 - A.x0) * (A.y1 - A.y0);
       return { cover: x1 > x0 ? ((x1 - x0) * (y1 - y0)) / area : 0, text: textArea / area };
     }, { id: p.id, t: p.end - 0.4 });
-    if (settled.cover < 0.45) add(p, p.end - 0.4, 'sparse', 'warn', `sparse page: the drawing spans ${Math.round(settled.cover * 100)}% of the content area (aim for most of x 140–1780, y 180–880)`, { percent: Math.round(settled.cover * 100) });
-    if (settled.text > 0.35) add(p, p.end - 0.4, 'text-heavy', 'warn', `text-dominated page: text covers ${Math.round(settled.text * 100)}% of the content area — let an object carry the idea, keep text to labels and numbers`, { percent: Math.round(settled.text * 100) });
+    const native = await page.evaluate(id => ENGINE.pages.find(p => p.pg.id === id)?.sh.native != null, p.id);
+    if (!native && settled.cover < 0.45) add(p, p.end - 0.4, 'sparse', 'warn', `sparse page: the drawing spans ${Math.round(settled.cover * 100)}% of the content area (aim for most of x 140–1780, y 180–880)`, { percent: Math.round(settled.cover * 100) });
+    if (!native && settled.text > 0.35) add(p, p.end - 0.4, 'text-heavy', 'warn', `text-dominated page: text covers ${Math.round(settled.text * 100)}% of the content area — let an object carry the idea, keep text to labels and numbers`, { percent: Math.round(settled.text * 100) });
     // determinism: the same moment, reached cold (from 0) and warm (from the page end), must be pixel-identical
     if (determinism) {
       const mid = (p.start + p.end) / 2;
@@ -143,6 +172,20 @@ export async function lintPages(page, { L, pages, step = 0.5, minFont = 24, dete
           const raw = el.closest('.katex') ? null : /\\[A-Za-z]{2,}/.exec(el.textContent);
           if (raw) out.push({ kind: 'raw-markup', level: 'error', msg: `raw markup on screen: "${raw[0]}" in "${el.textContent.trim().slice(0, 40)}" — write the character (λ, ≈, ², →) instead, or use P.tex for a formula`, data: { markup: raw[0], text: el.textContent.trim().slice(0, 40) } });
           boxes.push({ x0: x0 - frame.left, y0: y0 - frame.top, x1: x1 - frame.left, y1: y1 - frame.top, txt: txt.replace(/ /g, ' ').slice(0, 24) });
+        }
+        // Canvas text is absent from the DOM walker. Its recorded bounds include the actual glyph metrics and transforms.
+        for (const canvas of document.querySelectorAll('#stage canvas')) {
+          if (op(canvas)<.5 || !canvas.__layout) continue;
+          const r=canvas.getBoundingClientRect(),sx=r.width/canvas.width,sy=r.height/canvas.height;
+          for (const b of canvas.__layout.texts) {
+            if (!b.complete) continue;
+            boxes.push({x0:r.left-frame.left+b.x0*sx,y0:r.top-frame.top+b.y0*sy,x1:r.left-frame.left+b.x1*sx,y1:r.top-frame.top+b.y1*sy,txt:b.txt.slice(0,24)});
+          }
+          for (const {mark,text,dx,dy,tolerance} of PV.CanvasLayout.pairs(canvas.__layout)) {
+            if (Math.abs(dx)<=tolerance && Math.abs(dy)<=tolerance) continue;
+            const where=`label ${canvas.__layout.texts.indexOf(text)+1}`;
+            out.push({kind:'alignment',level:'error',msg:`annotation alignment: "${text.txt}" is off-centre in its ${mark.kind} at ${where} — share the visual centre; text x is already centred, y is its baseline`,data:{text:text.txt,mark:mark.kind,dx:Math.round(dx),dy:Math.round(dy),tolerance:+tolerance.toFixed(1)}});
+          }
         }
         for (const b of boxes) {
           if (b.x0 < 40 || b.x1 > 1880 || b.y0 < 30 || b.y1 > 1060) out.push({ kind: 'off-canvas', level: 'error', msg: `off-canvas/edge: "${b.txt}" box ${b.x0|0},${b.y0|0}–${b.x1|0},${b.y1|0}`, data: { text: b.txt } });
@@ -238,6 +281,55 @@ export async function contactSheet(page, times, file, { tile = 640, label = true
     for (const f of shots) fs.rmSync(f, { force: true });
   }
   return file;
+}
+
+/** Enlarged labels and their annotations, from the same browser and sampled moments as the contact sheet. */
+export async function detailSheet(page, times, file) {
+  const dir=path.dirname(file),name=path.basename(file,path.extname(file)),shots=[],seen=new Set();
+  fs.mkdirSync(dir,{recursive:true});
+  try {
+    for (const t of [...times].reverse()) {
+      if(shots.length>=6) break;
+      const clips=await page.evaluate(async t=>{
+        ENGINE.renderAt(t);if(window.__frameReady)await window.__frameReady(t);
+        const frame=document.getElementById('frame').getBoundingClientRect(),clips=[];
+        for(const [canvasIndex,canvas] of [...document.querySelectorAll('#stage canvas')].entries()) {
+          let opacity=1;for(let n=canvas;n&&n.id!=='frame';n=n.parentElement)opacity*=+getComputedStyle(n).opacity;
+          if(opacity<.5 || !canvas.__layout)continue;
+          const r=canvas.getBoundingClientRect(),sx=r.width/canvas.width,sy=r.height/canvas.height;
+          const pairs=PV.CanvasLayout.pairs(canvas.__layout);
+          const grouped=new Map();
+          for(const {mark,text} of pairs) {
+            const prior=grouped.get(text)??text;
+            grouped.set(text,{x0:Math.min(prior.x0,mark.x0),y0:Math.min(prior.y0,mark.y0),x1:Math.max(prior.x1,mark.x1),y1:Math.max(prior.y1,mark.y1),txt:text.txt});
+          }
+          const boxes=canvas.__layout.texts.filter(b=>b.complete&&b.txt.length<=24).map(b=>({...grouped.get(b)??b,labelIndex:canvas.__layout.texts.indexOf(b)}));
+          for(const b of boxes) {
+            const x=Math.max(frame.left,r.left+(b.x0-28)*sx),y=Math.max(frame.top,r.top+(b.y0-28)*sy);
+            const right=Math.min(frame.right,r.left+(b.x1+28)*sx),bottom=Math.min(frame.bottom,r.top+(b.y1+28)*sy);
+            if(right>x&&bottom>y)clips.push({key:`${canvasIndex}|${b.labelIndex}`,x,y,width:right-x,height:bottom-y});
+          }
+        }
+        return clips;
+      },t);
+      for(const {key,...clip} of clips) {
+        if(seen.has(key))continue;seen.add(key);
+        const shot=path.join(dir,`.${name}-${String(shots.length).padStart(3,'0')}.png`);
+        const raw=shot+'.raw.png';
+        try {
+          await page.screenshot({path:raw,clip});
+          // Normalize each crop before tiling: changing frame dimensions would reset ffmpeg's tile filter.
+          execFileSync(FFMPEG,['-y','-loglevel','error','-i',raw,'-vf','scale=520:360:force_original_aspect_ratio=decrease,pad=520:360:(ow-iw)/2:(oh-ih)/2:white','-frames:v','1',shot]);
+          shots.push(shot);
+        } finally {fs.rmSync(raw,{force:true});}
+        if(shots.length>=6)break;
+      }
+    }
+    if(!shots.length)return undefined;
+    const cols=Math.min(3,shots.length);
+    execFileSync(FFMPEG,['-y','-loglevel','error','-i',path.join(dir,`.${name}-%03d.png`),'-vf',`tile=${cols}x${Math.ceil(shots.length/cols)}:padding=6:color=white`,'-frames:v','1',file]);
+    return file;
+  } finally {for(const shot of shots)fs.rmSync(shot,{force:true});}
 }
 
 /** findings as a person reads them in a terminal */

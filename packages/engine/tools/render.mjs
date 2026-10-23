@@ -134,7 +134,12 @@ if (!has('skip-video')) {
   const read = (f) => { try { return fs.readFileSync(f); } catch { return ''; } };
   const kitDir = path.join(dir, '..');
   const shared = digest(
-    ...[...files(path.join(kitDir, 'runtime')), ...files(path.join(kitDir, 'lib')), ...files(path.join(kitDir, 'styles', META.style || 'warm-story'), false)].map((f) => read(f).toString('base64')),
+    ...[...files(path.join(kitDir, 'runtime')), ...files(path.join(kitDir, 'lib')), ...files(path.join(kitDir, 'vendor'), false).filter((f) => /\.(?:m?js)$/.test(f)), ...files(path.join(kitDir, 'styles', META.style || 'warm-story'), false)].map((f) => read(f).toString('base64')),
+    read(path.join(kitDir, 'boot.js')).toString('base64'),
+    ...files(path.join(kitDir, 'native', 'bundles')).map((f) => read(f).toString('base64')),
+    read(path.join(kitDir, 'native', 'renderers.json')).toString('base64'),
+    // Extras can live beside script.js, outside extras/. Include the source actually loaded by boot.
+    ...(META.extras || []).map((f) => read(path.join(EP, f)).toString('base64')),
     ...files(path.join(EP, 'extras')).map((f) => read(f).toString('base64')), read(path.join(EP, 'index.html')).toString(),
     { ...META, publish: undefined, voice: undefined }, L.pages.map((p) => [p.id, p.section, p.title]), FPS, PORTRAIT, has('hw'), ...(WATERMARK ? ['watermark'] : []), ...(JPEG !== 92 ? [`jpeg-${JPEG}`] : []),
     // how frames are captured: bumped when that changes, so segments drawn the old way are drawn again (2: the window

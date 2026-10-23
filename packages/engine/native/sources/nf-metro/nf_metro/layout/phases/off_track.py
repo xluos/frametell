@@ -1,0 +1,2241 @@
+"""Off-track input placement and phantom pass-through insertion."""
+
+from __future__ import annotations
+
+import math
+from collections import Counter, defaultdict
+from collections.abc import Callable, Iterator
+
+from nf_metro.layout.constants import (
+    COORD_GROUP_DIGITS_COARSE,
+    DIAGONAL_RUN,
+    EXIT_GAP_MULTIPLIER,
+    ICON_CAPTION_FONT_HEIGHT,
+    ICON_CAPTION_GAP,
+    ICON_HALF_HEIGHT,
+    LABEL_BBOX_MARGIN,
+    MIN_STRAIGHT_EDGE,
+    OFF_TRACK_OUTPUT_TAIL,
+    OFF_TRACK_TRUNK_CLEARANCE_MARGIN,
+    SAME_COORD_TOLERANCE,
+    SECTION_Y_PADDING,
+    X_SPACING,
+    graph_offset_step,
+)
+from nf_metro.layout.geometry import AxisFrame, lanes_run_along_x, quantize_coord
+from nf_metro.layout.labels import _label_text_height, label_text_width
+from nf_metro.layout.pass_metrics import icon_half_height_approx, terminus_width_approx
+from nf_metro.layout.phases._common import (
+    _content_station_ids,
+    _exit_reaching_nodes,
+    _section_bundle_lines,
+    _section_lr_port_anchor_y,
+    dominant_value,
+    flow_axis_exit_ports,
+    grow_section_bbox_max_edge,
+    grow_section_bbox_min_edge,
+    move_section_bbox_max_edge,
+    move_section_bbox_min_edge,
+    section_axes,
+    section_cross_axis,
+)
+from nf_metro.parser.model import (
+    Edge,
+    MetroGraph,
+    PortSide,
+    Section,
+    Station,
+    is_bypass_v,
+)
+
+# A producer this far off the trunk's baseline (on the fan side of the cross
+# axis) is treated as sitting on a downward branch, so its off-track output is
+# offset away from the trunk rather than lifting back across it.  Sized below a
+# full slot so it ignores offset/rounding noise on a straight trunk yet fires on
+# any genuine one-slot branch column.
+_DOWNWARD_BRANCH_SLOP: float = ICON_HALF_HEIGHT
+
+_OUTPUT_TAIL: float = OFF_TRACK_OUTPUT_TAIL
+
+
+def _insert_phantom_pass_throughs(
+    graph: MetroGraph,
+    section: Section,
+    sub: MetroGraph,
+) -> None:
+    """Insert phantom stations into *sub* so deep-entry lines get own tracks.
+
+    When a line enters a section via an entry port but its first internal
+    station is deeper than layer 0, the line would share a track with
+    unrelated stations at the early layers.  Adding a hidden phantom at
+    layer 0 gives the line a dedicated track for a clear horizontal runway.
+
+    Only modifies the temporary subgraph -- the main graph stays immutable.
+    """
+    if not sub.stations:
+        return
+
+    from nf_metro.layout.layers import assign_layers
+
+    layers = assign_layers(sub)
+    if not layers:
+        return
+    min_layer = min(layers.values())
+
+    # Scan entry ports in section order so each line's targets follow port
+    # declaration order.
+    entry_targets: dict[str, list[str]] = {}
+    for pid in section.entry_ports:
+        for edge in graph.edges_from(pid):
+            if edge.target in sub.stations:
+                targets = entry_targets.setdefault(edge.line_id, [])
+                if edge.target not in targets:
+                    targets.append(edge.target)
+
+    for line_id, targets in entry_targets.items():
+        target_layers = [layers.get(t, min_layer) for t in targets]
+        if all(ly > min_layer for ly in target_layers):
+            # Tie-break earliest layer by station id: for at least one real map
+            # the other candidate deterministically fails the routing
+            # curve-invariant check, so id order is the safe deterministic pick.
+            earliest_target = min(targets, key=lambda t: (layers.get(t, 0), t))
+            phantom_id = f"_phantom_{section.id}_{line_id}"
+
+            sub.add_station(
+                Station(
+                    id=phantom_id,
+                    label="",
+                    section_id=section.id,
+                    is_hidden=True,
+                )
+            )
+            sub.add_edge(
+                Edge(source=phantom_id, target=earliest_target, line_id=line_id)
+            )
+
+    _materialize_pass_through_lines(graph, section, sub)
+
+
+def _materialize_pass_through_lines(
+    graph: MetroGraph,
+    section: Section,
+    sub: MetroGraph,
+) -> None:
+    """Give a full-bundle entry->exit pass-through its line membership in *sub*.
+
+    A real station whose only edges are inter-section -- fed by an entry port
+    and feeding an exit port, with no internal neighbours -- is isolated (and so
+    lineless) in the port-stripped subgraph.  The track allocator then treats it
+    as an orphan and drops it on a bottom track, letting an in-section dead-end
+    chain claim the section trunk while this through-station -- the one that
+    actually carries the bundle across the section -- fans off it.
+
+    Attaching a hidden phantom successor carrying the station's exit-port lines
+    restores that membership without adding an internal predecessor (so the
+    station stays a layer-0 root beside its entry-fed siblings).  The track
+    allocator then sees it as the line-superset trunk of its fan and pins it on
+    the trunk, so the continuing chain runs straight and the dead-end peels off.
+
+    Narrow by construction to that trunk-theft shape: the pass-through must carry
+    the full section bundle (it is the real trunk), and the section must contain a
+    competing dead-end chain that would otherwise seize the trunk.  A competitor
+    is either an on-track *subset chain* (a proper subset of the bundle, any mode)
+    or -- under ``diamond_style: straight`` -- a full-bundle chain that never
+    reaches an exit port; straight mode must hold the through-line on the trunk,
+    whereas symmetric mode straddles and needs no materialised anchor.  Without a
+    competitor there is nothing stealing the trunk, so materialising the
+    pass-through would only reshuffle an already sound fan (e.g. two equal
+    full-bundle pass-throughs).
+    """
+    bundle = _section_bundle_lines(graph, section)
+    if not bundle:
+        return
+
+    exit_reaching = _exit_reaching_nodes(graph, section)
+
+    def _competes_for_trunk(sid: str, st: Station) -> bool:
+        if st.is_hidden or st.is_port or st.off_track:
+            return False
+        lines = set(graph.station_lines(sid))
+        if not lines or not (sub.edges_from(sid) or sub.edges_to(sid)):
+            return False
+        if lines < bundle:
+            return True
+        return graph.diamond_style == "straight" and sid not in exit_reaching
+
+    if not any(_competes_for_trunk(sid, st) for sid, st in sub.stations.items()):
+        return
+
+    exit_port_ids = set(section.exit_ports)
+    for sid, station in list(sub.stations.items()):
+        if station.is_hidden or station.is_port or station.off_track:
+            continue
+        if sub.edges_from(sid) or sub.edges_to(sid):
+            continue
+        if set(graph.station_lines(sid)) != bundle:
+            continue
+        fed_by_entry = any(e.source in section.entry_ports for e in graph.edges_to(sid))
+        exit_lines = sorted(
+            {e.line_id for e in graph.edges_from(sid) if e.target in exit_port_ids}
+        )
+        if not fed_by_entry or not exit_lines:
+            continue
+        phantom_id = f"_passthrough_{section.id}_{sid}"
+        sub.add_station(
+            Station(id=phantom_id, label="", section_id=section.id, is_hidden=True)
+        )
+        for line_id in exit_lines:
+            sub.add_edge(Edge(source=sid, target=phantom_id, line_id=line_id))
+
+
+def _off_track_output_lead(
+    producer: Station,
+    is_downward: bool,
+    extra: float = 0.0,
+) -> float:
+    """Flat run reserved on the producer's side of an off-track output diagonal.
+
+    An upward output rises away from the producer's name label, so it needs
+    only the base straight edge before the diagonal -- a constant lead that
+    keeps every upward output the same distance from its producer.  A downward
+    drop turns toward the label, so it holds the diagonal past the label's far
+    edge to clear the text.
+
+    ``extra`` is a render-time widening the strike-clearance loop adds when the
+    output's diagonal (upward or downward) is found to rake the producer's name
+    at the settled, label-side-known geometry -- the base lead cannot anticipate
+    an upward output's label side, so the loop grows this once it knows.
+    """
+    lead = MIN_STRAIGHT_EDGE
+    if is_downward and producer.label.strip():
+        lead = max(lead, label_text_width(producer.label) / 2 + LABEL_BBOX_MARGIN)
+    return lead + extra
+
+
+def _section_has_seed_below_output(graph: MetroGraph, section: Section) -> bool:
+    """Whether *section* peels an output below its trunk from a dead-end branch.
+
+    An output whose producer peels off a still-continuing trunk -- the producer
+    never reaches a section exit while the section's through-line does -- fans to
+    the below (fan) side, the ``producer_on_branch`` seed a same-row trunk-fork
+    output matches when it drops.  This is the structural counterpart of
+    :func:`_off_track_output_below`'s coordinate check, evaluable before layout so
+    the X-spacing pass can anticipate the row's peel convention.  A terminal
+    section has no through-line, so its outputs are the trunk's natural termini,
+    not below-peels.
+    """
+    exit_reaching = _exit_reaching_nodes(graph, section)
+    if not exit_reaching:
+        return False
+    for sid in section.station_ids:
+        st = graph.stations.get(sid)
+        if st is None or not (st.off_track or st.is_terminus):
+            continue
+        for edge in graph.edges_to(sid):
+            producer = graph.stations.get(edge.source)
+            if (
+                producer is not None
+                and not producer.is_port
+                and edge.source not in exit_reaching
+            ):
+                return True
+    return False
+
+
+def _row_has_below_output_peer(graph: MetroGraph, section: Section) -> bool:
+    """Whether another section in *section*'s grid row peels an output below.
+
+    The trunk-fork peel drops an on-trunk output only to match such a peer, so
+    the X-spacing pass reserves the downward lead only when one exists.
+    """
+    return any(
+        other.id != section.id
+        and other.grid_row == section.grid_row
+        and _section_has_seed_below_output(graph, other)
+        for other in graph.sections.values()
+    )
+
+
+def _space_off_track_outputs(
+    sub: MetroGraph,
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    x_spacing: float = X_SPACING,
+    lead_extra: dict[str, float] | None = None,
+    *,
+    graph: MetroGraph | None = None,
+    section: Section | None = None,
+    exit_reaching: frozenset[str] | None = None,
+) -> tuple[dict[str, float], dict[int, float]]:
+    """Per-output X offset, plus a per-layer push to widen producer gaps.
+
+    Each off-track output hangs off its producer with the same S-shape: a flat
+    run (the producer-label clearance), a standard-slope diagonal, then a fixed
+    flat tail (``_OUTPUT_TAIL``) into the icon.  The icon is placed at
+    ``producer.x + lead + DIAGONAL_RUN + _OUTPUT_TAIL`` so the tail after the
+    diagonal is exactly ``_OUTPUT_TAIL`` for every output.
+
+    Returns ``(output_extra, layer_push)``:
+
+    * ``output_extra`` maps each output station id to the X offset it gets on
+      top of its layer base; the output sits at its producer's layer, so its
+      base X equals the producer's X and the offset is the full run.
+    * ``layer_push`` is a cumulative per-layer X push (analogous to the
+      fork/join ``layer_extra``) that widens the trunk gap *after* a producer
+      whose off-track output's horizontal extent (icon right edge plus margin)
+      would otherwise overrun the normal one-pitch gap to the next station.
+      Without it the output's up-right S-curve crosses the intervening trunk
+      station and adjacent outputs bunch together.  The push is conditional:
+      a producer whose output fits inside the normal gap adds nothing, so the
+      trunk is never widened where no output needs the room.
+
+    On-track stations keep their own columns; the output hangs in a row above
+    or below the trunk.  ``output_extra`` is empty when no on-track station
+    feeds an off-track output.
+    """
+    on_track_tracks = [
+        t
+        for sid, t in tracks.items()
+        if not sub.stations[sid].off_track and not sub.stations[sid].is_hidden
+    ]
+    # Compare a producer against the trunk baseline (the track the through-flow
+    # runs on), not the topmost on-track track: an up-branch elsewhere in the
+    # section drives ``min`` above the trunk and would misread a trunk producer
+    # as sitting on a downward branch.
+    trunk_track = (
+        dominant_value(
+            quantize_coord(t, COORD_GROUP_DIGITS_COARSE) for t in on_track_tracks
+        )
+        if on_track_tracks
+        else 0.0
+    )
+
+    # An output whose producer sits on the trunk is peeled *below* it by the
+    # #1772 trunk-fork rule, which decides Y only once coordinates settle -- long
+    # after this pass.  Predict that drop structurally (from the track map) so a
+    # downward output reserves its label-clearance lead now; without it the
+    # diagonal later collapses into the leftover run with no horizontal lead-in.
+    fan_sign = (
+        AxisFrame.secondary_sign_for(section.direction or "LR")
+        if section is not None
+        else 1.0
+    )
+    baseline_signed = fan_sign * trunk_track
+    row_has_below_peer = (
+        graph is not None
+        and section is not None
+        and exit_reaching is not None
+        and _row_has_below_output_peer(graph, section)
+    )
+
+    def _peels_below(producer_id: str, sink_id: str) -> bool:
+        if not row_has_below_peer or graph is None or exit_reaching is None:
+            return False
+        return _forks_trunk_into_output_and_exit(
+            graph,
+            producer_id,
+            sink_id,
+            signed_pos=lambda node: fan_sign * tracks.get(node, trunk_track),
+            baseline_signed=baseline_signed,
+            reaches_exit=lambda node: node in exit_reaching,
+        )
+
+    output_extra: dict[str, float] = {}
+    # Clearance each output demands before the next station: the full output
+    # run out to its icon's right edge, so the following output's divergence
+    # clears this icon rather than raking it.  The lead is constant for upward
+    # outputs, so the demand is uniform and every divergence sits the same
+    # distance before its successor.
+    layer_demand: dict[int, float] = defaultdict(float)
+    for sid, station in sub.stations.items():
+        if station.off_track or station.is_hidden or sid not in layers:
+            continue
+        targets = [
+            e.target
+            for e in sub.edges_from(sid)
+            if e.target in sub.stations and not sub.stations[e.target].is_hidden
+        ]
+        # A fork producer's branches already spread through its diverge gap, so
+        # an output beside them needs no extra trunk room; only a linear
+        # producer's single onward edge has to make space for its divergence.
+        # Count distinct on-track successor stations, not per-line edges: a
+        # single onward station carried by several lines is one successor.
+        on_track_succ = len({t for t in targets if not sub.stations[t].off_track})
+        for target_id in targets:
+            target = sub.stations[target_id]
+            if not target.off_track:
+                continue
+            is_downward = tracks.get(sid, trunk_track) > trunk_track or _peels_below(
+                sid, target_id
+            )
+            producer_extra = lead_extra.get(sid, 0.0) if lead_extra else 0.0
+            lead = _off_track_output_lead(station, is_downward, producer_extra)
+            output_extra[target_id] = lead + DIAGONAL_RUN + _OUTPUT_TAIL
+            producer_layer = layers[sid]
+            layers[target_id] = producer_layer
+            if on_track_succ <= 1:
+                # How far past its station the following producer must sit so the
+                # next output's divergence passes cleanly under this output's icon
+                # (the next diagonal dips beneath the icon rather than clearing its
+                # full width, so this is about one glyph-width, not the icon's
+                # whole extent).
+                clearance = lead + DIAGONAL_RUN + _OUTPUT_TAIL + terminus_width_approx()
+                layer_demand[producer_layer] = max(
+                    layer_demand[producer_layer], clearance
+                )
+
+    layer_push: dict[int, float] = {}
+    if layer_demand:
+        max_layer = max(layers.values())
+        cumulative = 0.0
+        for layer in range(max_layer + 1):
+            layer_push[layer] = cumulative
+            # The producer's output occupies its own column gap; only the
+            # excess beyond a normal pitch shifts the layers that follow.
+            excess = layer_demand.get(layer, 0.0) - x_spacing
+            if excess > 0:
+                cumulative += excess
+
+    return output_extra, layer_push
+
+
+def _align_phantom_pass_throughs(
+    sub: MetroGraph,
+    tracks: dict[str, float],
+) -> None:
+    """Snap convergence nodes to their phantom pass-through's track.
+
+    The phantom ensures a dedicated track for the bypassing line.
+    Moving the convergence node (the phantom's sole successor) to that
+    track keeps the trunk horizontal so the optional branch visually
+    "bubbles" away from it.
+
+    A convergence node fed by *several* phantoms -- one per line when a
+    multi-line bundle enters a section and meets at one deep first
+    station -- is the head of the section trunk, not a bubble. Snapping
+    it to any single phantom's track would drag it off the trunk into a
+    near-vertical onward climb, so such a node is left on its assigned
+    trunk track.
+    """
+    phantom_track_of: dict[str, list[float]] = defaultdict(list)
+    for sid, station in sub.stations.items():
+        if not station.is_hidden or sid not in tracks:
+            continue
+        succs = {e.target for e in sub.edges_from(sid)}
+        if len(succs) == 1:
+            phantom_track_of[next(iter(succs))].append(tracks[sid])
+
+    for succ, phantom_tracks in phantom_track_of.items():
+        if len(phantom_tracks) == 1 and succ in tracks:
+            tracks[succ] = phantom_tracks[0]
+
+
+def _forced_branch_label_reach(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+    full_graph: MetroGraph | None,
+    label_angle: float,
+) -> float:
+    """Horizontal reach of a two-branch bubble's forced-down branch label.
+
+    In a two-branch bubble (``fork -> {top, bottom} -> join``) the top branch
+    sits on the trunk track and normally labels above it, clear of the
+    convergence/divergence diagonal.  An off-track output anchored at the bubble
+    and lifted above the trunk blocks that upward flip, forcing the top branch's
+    angled label down into the bubble where it rakes the bottom branch's
+    diagonal.  Returns the forced label's tilted X-extent (lower-right corner of
+    the rotated text box) so the caller can widen the bubble enough for the
+    diagonal to start past the text; ``0.0`` when no branch label is forced
+    down.
+    """
+    graph = full_graph or sub
+    peer_map = out_targets if layer in fork_layers else in_sources
+    fork_join_ids = [sid for sid, lyr in layers.items() if lyr == layer]
+    rad = math.radians(label_angle)
+    cos_a, sin_a = abs(math.cos(rad)), abs(math.sin(rad))
+
+    reach = 0.0
+    for fj_id in fork_join_ids:
+        branches = peer_map.get(fj_id, set())
+        branch_tracks = {tracks[b] for b in branches if b in tracks}
+        if len(branch_tracks) != 2:
+            continue
+        top_track = min(branch_tracks)
+        if not _bubble_anchor_has_lifted_output(graph, fj_id, branches):
+            continue
+        for branch_id in branches:
+            if tracks.get(branch_id) != top_track:
+                continue
+            station = sub.stations.get(branch_id)
+            if station and station.label.strip():
+                footprint = (
+                    label_text_width(station.label) * cos_a
+                    + _label_text_height(station.label) * sin_a
+                )
+                reach = max(reach, footprint)
+    return reach
+
+
+def _bubble_anchor_has_lifted_output(
+    graph: MetroGraph,
+    fork_join_id: str,
+    branches: set[str],
+) -> bool:
+    """Whether an off-track output is lifted above the bubble's top branch.
+
+    The output is the producer-fed sink (no on-track consumer) that drops
+    *above* the trunk, anchored at the fork/join station or at the bubble's
+    top branch itself.  Such a sink occupies the column above the top branch
+    and blocks that branch's angled label from flipping up.
+    """
+    below = _off_track_output_below(graph)
+    anchor_of = _off_track_anchor_of(graph)
+    candidate_anchors = {fork_join_id} | branches
+    for off_id, anchor_id in anchor_of.items():
+        if anchor_id not in candidate_anchors:
+            continue
+        off_st = graph.stations.get(off_id)
+        if off_st is None or not off_st.off_track:
+            continue
+        if any(e.target == anchor_id for e in graph.edges_from(off_id)):
+            continue
+        if off_id in below:
+            continue
+        return True
+    return False
+
+
+def _fork_join_adjacency(
+    sub: MetroGraph,
+    full_graph: MetroGraph | None,
+    section_station_ids: set[str] | None,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Successor/predecessor sets used for fork/join detection.
+
+    With ``full_graph`` and ``section_station_ids`` the adjacency is built
+    from every section-internal edge (including those touching exit/entry
+    ports), so a station feeding both an internal successor and a port counts
+    as a divergence.  Otherwise it falls back to ``sub``'s own edges.
+    """
+    out_targets: dict[str, set[str]] = defaultdict(set)
+    in_sources: dict[str, set[str]] = defaultdict(set)
+    if full_graph is not None and section_station_ids is not None:
+        for edge in full_graph.edges:
+            if (
+                edge.source in section_station_ids
+                and edge.target in section_station_ids
+            ):
+                out_targets[edge.source].add(edge.target)
+                in_sources[edge.target].add(edge.source)
+    else:
+        for edge in sub.edges:
+            out_targets[edge.source].add(edge.target)
+            in_sources[edge.target].add(edge.source)
+    return out_targets, in_sources
+
+
+def _detect_fork_join_layers(
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+) -> tuple[set[int], set[int]]:
+    """Layers where tracks diverge (forks) or converge (joins).
+
+    Only multi-track divergences/convergences count: a same-track fan-out
+    needs no diagonal transition and so no extra room.  Port stations are
+    absent from ``tracks`` and treated conservatively as possibly off-track.
+
+    Forks in a single visible-track section are an exception: an exit-side
+    port sits at the far boundary, so the diagonal already has ample room and
+    a missing-track fork is skipped.  Join gaps are kept even then, because an
+    entry port sits close to the first internal station.
+
+    Bypass-V helpers (``__bypass_`` ids) are routing-only.  A V on its own
+    off-trunk track must not flip an otherwise single-track section into
+    multi-track, so its track is excluded and the owner's own track folded in,
+    making a visible-vs-owner diagonal trigger a gap while a V-only off-trunk
+    peer does not.
+    """
+    visible_tracks = {t for sid, t in tracks.items() if not is_bypass_v(sid)}
+    is_single_track = len(visible_tracks) <= 1
+
+    def _has_bypass(ids: set[str]) -> bool:
+        return any(is_bypass_v(nid) for nid in ids)
+
+    def _bypass_aware_tracks(ids: set[str], owner_sid: str) -> set[float]:
+        """Visible peer tracks plus the owner's own track, V's removed."""
+        result: set[float] = set()
+        owner_track = tracks.get(owner_sid)
+        if owner_track is not None:
+            result.add(owner_track)
+        for nid in ids:
+            if is_bypass_v(nid):
+                continue
+            t = tracks.get(nid)
+            if t is not None:
+                result.add(t)
+        return result
+
+    fork_layers: set[int] = set()
+    for sid, targets in out_targets.items():
+        if len(targets) > 1 and sid in layers:
+            if any(t not in tracks for t in targets):
+                if not is_single_track:
+                    fork_layers.add(layers[sid])
+            else:
+                if _has_bypass(targets):
+                    target_tracks = _bypass_aware_tracks(targets, sid)
+                else:
+                    target_tracks = {tracks[t] for t in targets}
+                if len(target_tracks) > 1:
+                    fork_layers.add(layers[sid])
+
+    join_layers: set[int] = set()
+    for sid, sources in in_sources.items():
+        if len(sources) > 1 and sid in layers:
+            if any(s not in tracks for s in sources):
+                join_layers.add(layers[sid])
+            else:
+                if _has_bypass(sources):
+                    source_tracks = _bypass_aware_tracks(sources, sid)
+                else:
+                    source_tracks = {tracks[s] for s in sources}
+                if len(source_tracks) > 1:
+                    join_layers.add(layers[sid])
+
+    return fork_layers, join_layers
+
+
+def _flow_axis_label_half(label: str, direction: str) -> float:
+    """Half a label's extent along the section's flow axis.
+
+    The fork/join gap reserves flow-axis room so the branch diagonal clears the
+    fork/join station's label.  On an LR/RL trunk the label sits centred on the
+    marker, so its width runs along the flow (X) axis.  On a TB/BT trunk the
+    label sits beside the marker on the cross (X) axis -- opposite the branch
+    diagonal -- so only its height falls on the flow (Y) axis.
+    """
+    if lanes_run_along_x(direction):
+        return _label_text_height(label) / 2
+    return label_text_width(label) / 2
+
+
+def _fj_label_metrics(
+    layer: int,
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+    direction: str,
+) -> tuple[float, set[float]]:
+    """Widest half-label (along the flow axis) and occupied tracks on ``layer``."""
+    fj_label_half = 0.0
+    fj_tracks: set[float] = set()
+    for sid, lyr in layers.items():
+        if lyr == layer:
+            station = sub.stations.get(sid)
+            if station and station.label.strip():
+                fj_label_half = max(
+                    fj_label_half, _flow_axis_label_half(station.label, direction)
+                )
+            if sid in tracks:
+                fj_tracks.add(tracks[sid])
+    return fj_label_half, fj_tracks
+
+
+def _loop_widening_for_label_half(label_half: float, x_spacing: float) -> float:
+    """Extra loop room so a label of ``label_half`` half-width clears the fan's
+    transition diagonals.  A whole pitch already sits between columns, so it is
+    subtracted; the residual is scaled by an empirical ``1.5`` because the
+    widening is applied to both the fork- and join-side gaps."""
+    return max(0.0, (label_half * 2 + DIAGONAL_RUN - x_spacing) / 1.5)
+
+
+def _wide_fan_bubble_extra(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+    x_spacing: float,
+    fj_tracks: set[float],
+    direction: str,
+) -> float:
+    """Extra bubble room for a wide (3+ branch) fan's off-track middle labels.
+
+    For a multi-target fork / multi-source join the router skips bubble-station
+    centring, so the flat run at the bubble end can be very short.  When a
+    bubble station on the adjacent layer sits on a different track and carries a
+    wide label, the flat run is widened to fit it.  The gap is added on both
+    sides (after fork, before join), so each side contributes half the total.
+    """
+    is_wide_fork = False
+    is_wide_join = False
+    if layer in fork_layers:
+        for sid, tgts in out_targets.items():
+            if layers.get(sid) == layer and sid in tracks:
+                off_track = sum(
+                    1 for t in tgts if t in tracks and tracks[t] != tracks[sid]
+                )
+                if off_track >= 3:
+                    is_wide_fork = True
+                    break
+    if layer in join_layers:
+        for sid, srcs in in_sources.items():
+            if layers.get(sid) == layer and sid in tracks:
+                off_track = sum(
+                    1 for s in srcs if s in tracks and tracks[s] != tracks[sid]
+                )
+                if off_track >= 3:
+                    is_wide_join = True
+                    break
+
+    bubble_label_half = 0.0
+    if is_wide_fork:
+        for sid, lyr in layers.items():
+            if lyr == layer + 1 and sid in tracks and tracks[sid] not in fj_tracks:
+                station = sub.stations.get(sid)
+                if station and station.label.strip():
+                    bubble_label_half = max(
+                        bubble_label_half,
+                        _flow_axis_label_half(station.label, direction),
+                    )
+    if is_wide_join:
+        for sid, lyr in layers.items():
+            if lyr == layer - 1 and sid in tracks and tracks[sid] not in fj_tracks:
+                station = sub.stations.get(sid)
+                if station and station.label.strip():
+                    bubble_label_half = max(
+                        bubble_label_half,
+                        _flow_axis_label_half(station.label, direction),
+                    )
+
+    return _loop_widening_for_label_half(bubble_label_half, x_spacing)
+
+
+def _iter_hub_branches(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+) -> Iterator[tuple[str, set[str], int, bool]]:
+    """Yield ``(hub, branch_ids, branch_layer, diverge)`` for each fork/join hub on
+    ``layer``: a fork hub feeds the layer above, a join hub the layer below."""
+    if layer in fork_layers:
+        for hub, tgts in out_targets.items():
+            if layers.get(hub) == layer:
+                yield hub, tgts, layer + 1, True
+    if layer in join_layers:
+        for hub, srcs in in_sources.items():
+            if layers.get(hub) == layer:
+                yield hub, srcs, layer - 1, False
+
+
+def _branch_tracks(
+    branch_ids: set[str],
+    branch_layer: int,
+    layers: dict[str, int],
+    tracks: dict[str, float],
+) -> dict[str, float]:
+    """Track of each branch station that actually sits on ``branch_layer``."""
+    return {
+        b: tracks[b]
+        for b in branch_ids
+        if b in tracks and layers.get(b) == branch_layer
+    }
+
+
+def _interior_branch_loop_floor(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+    x_spacing: float,
+    direction: str,
+) -> float:
+    """Per-side loop gap so every interior branch label clears its diagonals.
+
+    An interior branch has a fan sibling on a higher track and one on a lower
+    track, so its label sits inside the loop with a diagonal on each side.  The
+    loop must open wide enough for that label to clear those diagonals; the
+    interior branch's own width - not the fork/join station's - sets how wide.
+    Applied symmetrically as a floor on both the fork-side and join-side gap so
+    the interior branch (which sits on the trunk and is not loop-recentred) stays
+    centred - equal divergence and reconvergence runs.
+
+    A thin (single-line) sibling bundle reconverges/diverges as one diagonal
+    placed near the fork/join, so it never intrudes on the interior label; only a
+    thick multi-line bundle starts its diagonal early and grazes it.  Each
+    interior branch is sized independently and the widest requirement wins, so a
+    narrow label fed by a thick bundle is not shadowed by a wide label fed by a
+    thin one.
+    """
+    floor = 0.0
+    for hub, branch_ids, branch_layer, diverge in _iter_hub_branches(
+        layer, fork_layers, join_layers, out_targets, in_sources, layers
+    ):
+        btracks = _branch_tracks(branch_ids, branch_layer, layers, tracks)
+        if len(btracks) < 3:
+            continue
+        top, bottom = min(btracks.values()), max(btracks.values())
+        hub_edges = sub.edges_from(hub) if diverge else sub.edges_to(hub)
+        sibling_lines = Counter((e.target if diverge else e.source) for e in hub_edges)
+        for bid, bt in btracks.items():
+            interior = top + SAME_COORD_TOLERANCE < bt < bottom - SAME_COORD_TOLERANCE
+            station = sub.stations.get(bid)
+            if not (interior and station and station.label.strip()):
+                continue
+            lines = max(
+                (sibling_lines[sib] for sib in btracks if sib != bid), default=0
+            )
+            if lines < 2:
+                continue
+            half = _flow_axis_label_half(station.label, direction)
+            floor = max(floor, _loop_widening_for_label_half(half, x_spacing))
+    return floor
+
+
+def _has_interior_branch(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+) -> bool:
+    """Whether the fan puts a branch label inside the bubble.
+
+    This needs three or more branches (two or more off-trunk tracks): the
+    middle branch then has a diagonal on both sides.  A two-branch fork places
+    both labels outside the bubble, so the convergence diagonal never crosses
+    them.
+    """
+    if layer in fork_layers:
+        for fsid, ftgts in out_targets.items():
+            if layers.get(fsid) == layer and fsid in tracks:
+                off = sum(1 for t in ftgts if t in tracks and tracks[t] != tracks[fsid])
+                if off >= 2:
+                    return True
+    if layer in join_layers:
+        for jsid, jsrcs in in_sources.items():
+            if layers.get(jsid) == layer and jsid in tracks:
+                off = sum(1 for s in jsrcs if s in tracks and tracks[s] != tracks[jsid])
+                if off >= 2:
+                    return True
+    return False
+
+
+def _angled_interior_reach(
+    layer: int,
+    fork_layers: set[int],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+    fj_tracks: set[float],
+    label_angle: float,
+) -> float:
+    """Tilted-label horizontal reach on the adjacent bubble layer.
+
+    Angled labels hang to the lower-right of each fan caller; with a branch
+    label inside the bubble the convergence diagonal must start past the tilted
+    text or it rakes the label.
+    """
+    cos_a = abs(math.cos(math.radians(label_angle)))
+    adj_layer = layer + 1 if layer in fork_layers else layer - 1
+    angled_reach = 0.0
+    for sid, lyr in layers.items():
+        if lyr == adj_layer and sid in tracks and tracks[sid] not in fj_tracks:
+            station = sub.stations.get(sid)
+            if station and station.label.strip():
+                angled_reach = max(
+                    angled_reach, label_text_width(station.label) * cos_a
+                )
+    return angled_reach
+
+
+def _off_track_branch_needs_loop_room(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+) -> bool:
+    """Whether an off-track branch dips through this fork/join and needs loop room.
+
+    An off-track branch leaves the hub's track on a transition diagonal, so it
+    needs the fork/join label's straight-run reservation kept for its own flat run
+    (and to keep its dip centred).  A join's off-track source always dips up to the
+    internal join station, so it always qualifies.  A fork's off-track target only
+    qualifies if it reconverges at an internal station (an onward edge to a real
+    station); a target that merely exits the section through a port - or a diamond
+    whose branches all terminate at the fork - has no dip to keep room for, so the
+    column packs tight.
+
+    Requires a genuine fork/join (two or more targets/sources) whose branches span
+    a transition diagonal: they must not all sit within ``SAME_COORD_TOLERANCE`` of
+    the hub's own track.
+    """
+    for hub, branch_ids, branch_layer, diverge in _iter_hub_branches(
+        layer, fork_layers, join_layers, out_targets, in_sources, layers
+    ):
+        if len(branch_ids) < 2:
+            continue
+        btracks = _branch_tracks(branch_ids, branch_layer, layers, tracks)
+        hub_track = tracks.get(hub)
+        diagonal_tracks = list(btracks.values())
+        if hub_track is not None:
+            diagonal_tracks.append(hub_track)
+        if not diagonal_tracks:
+            continue
+        if max(diagonal_tracks) - min(diagonal_tracks) <= SAME_COORD_TOLERANCE:
+            continue
+        for bid, btrack in btracks.items():
+            station = sub.stations.get(bid)
+            if not (station and station.label.strip()):
+                continue
+            if (
+                hub_track is not None
+                and abs(btrack - hub_track) <= SAME_COORD_TOLERANCE
+            ):
+                continue
+            if not diverge:
+                return True
+            if any(
+                (nxt := sub.stations.get(e.target)) is not None and not nxt.is_port
+                for e in sub.edges_from(bid)
+            ):
+                return True
+    return False
+
+
+def _layer_gap_for(
+    layer: int,
+    fork_layers: set[int],
+    join_layers: set[int],
+    out_targets: dict[str, set[str]],
+    in_sources: dict[str, set[str]],
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    sub: MetroGraph,
+    full_graph: MetroGraph | None,
+    x_spacing: float,
+    base_gap: float,
+    label_angle: float,
+    direction: str,
+) -> float:
+    """Column gap reserved at one fork/join layer.
+
+    The gap must be large enough that the diagonal transition starts past the
+    (possibly tilted) fork/join label and still has room for the transition.
+    The router reserves the fork/join label's flow-axis half-extent as straight
+    run but abandons it when the column gap can't also fit the diagonal run plus
+    the branch-side minimum straight; the ``routing_clearance`` term reserves a
+    gap sized to preserve that clearance.  A whole pitch already sits between
+    columns, so it is subtracted; the 1px cushion absorbs float rounding in the
+    router's drop test.
+    """
+    fj_label_half, fj_tracks = _fj_label_metrics(layer, layers, tracks, sub, direction)
+    bubble_extra = _wide_fan_bubble_extra(
+        layer,
+        fork_layers,
+        join_layers,
+        out_targets,
+        in_sources,
+        layers,
+        tracks,
+        sub,
+        x_spacing,
+        fj_tracks,
+        direction,
+    )
+    if label_angle:
+        if _has_interior_branch(
+            layer, fork_layers, join_layers, out_targets, in_sources, layers, tracks
+        ):
+            bubble_extra = max(
+                bubble_extra,
+                _angled_interior_reach(
+                    layer, fork_layers, layers, tracks, sub, fj_tracks, label_angle
+                ),
+            )
+        else:
+            # An off-track output above the top branch forces that branch's
+            # angled label down into the bubble, where it rakes the other
+            # branch's diagonal; widen by the forced label's horizontal reach.
+            bubble_extra = max(
+                bubble_extra,
+                _forced_branch_label_reach(
+                    layer,
+                    fork_layers,
+                    join_layers,
+                    out_targets,
+                    in_sources,
+                    layers,
+                    tracks,
+                    sub,
+                    full_graph,
+                    label_angle,
+                ),
+            )
+
+    interior_floor = 0.0
+    if not label_angle:
+        interior_floor = _interior_branch_loop_floor(
+            layer,
+            fork_layers,
+            join_layers,
+            out_targets,
+            in_sources,
+            layers,
+            tracks,
+            sub,
+            x_spacing,
+            direction,
+        )
+
+    # A layer that both forks and joins has this gap charged into the column on
+    # each side of it, once as its join gap and once as its fork gap.  Where the
+    # layer across each of those boundaries also contributes a gap there, the
+    # one-sided dip reservation is booked twice for room the neighbour already
+    # opens; without such a neighbour it is the only reservation the boundary
+    # gets and must stay.  The interior-branch floor is the two-sided term by
+    # design (equal divergence and reconvergence runs keep an interior branch
+    # centred), so a layer carrying that floor keeps the dip room as well.
+    double_counts_dip_reservation = (
+        layer in fork_layers
+        and layer in join_layers
+        and layer - 1 in fork_layers
+        and layer + 1 in join_layers
+        and interior_floor <= 0.0
+    )
+
+    # The bare label-half over-reserves by x_spacing - routing_clearance; keep it
+    # only where an off-track branch dips through the loop and needs that room.
+    dip_label_half = (
+        fj_label_half
+        if not double_counts_dip_reservation
+        and _off_track_branch_needs_loop_room(
+            layer,
+            fork_layers,
+            join_layers,
+            out_targets,
+            in_sources,
+            layers,
+            tracks,
+            sub,
+        )
+        else 0.0
+    )
+
+    routing_clearance = (
+        fj_label_half + DIAGONAL_RUN + MIN_STRAIGHT_EDGE - x_spacing + 1.0
+    )
+    return max(
+        base_gap,
+        routing_clearance + bubble_extra,
+        interior_floor,
+        dip_label_half,
+    )
+
+
+def _compute_fork_join_gaps(
+    sub: MetroGraph,
+    layers: dict[str, int],
+    tracks: dict[str, float],
+    x_spacing: float,
+    full_graph: MetroGraph | None = None,
+    section_station_ids: set[str] | None = None,
+    direction: str = "LR",
+) -> dict[int, float]:
+    """Compute extra flow-axis offset per layer at fork/join points.
+
+    Adds a fractional gap after fork layers (where tracks diverge) and
+    before join layers (where tracks converge) so labels aren't obscured
+    by diagonal crossings.  ``x_spacing`` is the flow-axis pitch and
+    ``direction`` selects the flow axis; both default to the LR regime.
+
+    When full_graph and section_station_ids are provided, fork/join
+    detection uses all edges within the section (including port-touching
+    edges). This catches divergences where a station connects to both
+    internal stations and exit ports.
+
+    In single-track sections (all stations on the same Y), port-bound
+    divergences are suppressed because there are no diagonal transitions
+    and the extra spacing is purely wasteful.
+    """
+    label_angle = (full_graph or sub).label_angle or 0.0
+    out_targets, in_sources = _fork_join_adjacency(sub, full_graph, section_station_ids)
+    fork_layers, join_layers = _detect_fork_join_layers(
+        out_targets, in_sources, layers, tracks
+    )
+
+    if not fork_layers and not join_layers:
+        return {}
+
+    hub_layers = fork_layers & join_layers
+
+    max_layer = max(layers.values()) if layers else 0
+    base_gap = x_spacing * EXIT_GAP_MULTIPLIER
+
+    layer_gap = {
+        layer: _layer_gap_for(
+            layer,
+            fork_layers,
+            join_layers,
+            out_targets,
+            in_sources,
+            layers,
+            tracks,
+            sub,
+            full_graph,
+            x_spacing,
+            base_gap,
+            label_angle,
+            direction,
+        )
+        for layer in fork_layers | join_layers
+    }
+
+    # A vertical (TB/BT) section is snapped to a whole-row grid, so a fractional
+    # fork/join gap rounds unevenly across the diamond and tilts it.  Quantise
+    # each gap to a whole flow-pitch row so equal fork- and join-side gaps stay
+    # equal after the snap and the branch peels and reconverges symmetrically.
+    if lanes_run_along_x(direction) and x_spacing > 0:
+        layer_gap = {
+            layer: round(gap / x_spacing) * x_spacing
+            for layer, gap in layer_gap.items()
+        }
+
+    cumulative = 0.0
+    layer_extra: dict[int, float] = {}
+    pending_fork_gap = 0.0
+    for layer in range(max_layer + 1):
+        join_gap = layer_gap.get(layer, base_gap) if layer in join_layers else 0.0
+        # The boundary entering this layer reserves the previous layer's fork
+        # spread and this layer's join gather.  When one of them is a hub that
+        # both forks and joins, the fan across this boundary is that hub's single
+        # set of diagonals reserved from both sides at once, so its gap covers
+        # the whole column and summing books the same room twice, leaving dead
+        # flat track before the hub.  Where the fork and join are distinct
+        # single-role layers the two gaps reserve two separate diagonal sets - a
+        # divergence and a reconvergence - and must both stand, or an interior
+        # branch loses the reconvergence run that keeps it centred.
+        fork_side_is_hub = (layer - 1) in hub_layers
+        join_side_is_hub = layer in hub_layers
+        hub_spans_boundary = fork_side_is_hub or join_side_is_hub
+        if pending_fork_gap > 0.0 and join_gap > 0.0 and hub_spans_boundary:
+            cumulative += max(pending_fork_gap, join_gap)
+        else:
+            cumulative += pending_fork_gap + join_gap
+        layer_extra[layer] = cumulative
+        pending_fork_gap = (
+            layer_gap.get(layer, base_gap) if layer in fork_layers else 0.0
+        )
+
+    return layer_extra
+
+
+def _line_crossed_file_icon_sinks(graph: MetroGraph) -> set[str]:
+    """Leaf file-icon sinks whose icon a non-terminating line rakes across.
+
+    Runs against a laid-out graph: routes the edges, builds each terminus
+    icon's drawn bbox, and returns the id of every leaf file-icon sink
+    (``is_terminus`` with an in-edge and no out-edge) whose box is crossed
+    by a line segment that neither starts nor ends at that station and is
+    not one of the station's own lines.
+
+    These are the sinks an auto-lift must take off the trunk: leaving them
+    on a line-track row puts the icon under a passing line.  A sink whose
+    icon no line crosses is left alone, so an end-of-chain terminus that
+    already sits clear is never lifted.
+    """
+    from nf_metro.layout.geometry import segment_intersects_bbox
+    from nf_metro.layout.routing import (
+        apply_route_offsets,
+        compute_station_offsets,
+        route_edges,
+    )
+    from nf_metro.render.svg import _icon_obstacles_by_station
+    from nf_metro.themes import THEMES
+
+    offsets = compute_station_offsets(graph)
+    icon_boxes = _icon_obstacles_by_station(graph, THEMES["nfcore"], offsets)
+    leaf_sinks = {
+        sid
+        for sid in icon_boxes
+        if (st := graph.stations.get(sid)) is not None
+        and not st.off_track
+        and graph.edges_to(sid)
+        and not graph.edges_from(sid)
+    }
+    if not leaf_sinks:
+        return set()
+
+    # A line leaving the sink's own vertical-flow (TB/BT) section through a
+    # flow-axis (LEFT/RIGHT) exit port is the section's exit corridor, which
+    # ``_resolve_tb_exit_y`` already seats below any terminus icon hanging
+    # into the exit row.  That corridor is not a passing line raking the icon,
+    # so it must not trigger an off-track lift -- the corridor moves, not the
+    # station.  Collect each such sink's exit ports so the crossing scan skips
+    # segments that arrive at (or leave from) them.
+    exit_corridor_ports: dict[str, set[str]] = {}
+    for sid in leaf_sinks:
+        sec_id = graph.stations[sid].section_id
+        sec = graph.sections.get(sec_id) if sec_id else None
+        if sec is None or not lanes_run_along_x(sec.direction or "LR"):
+            continue
+        ports = flow_axis_exit_ports(sec, graph)
+        if ports:
+            exit_corridor_ports[sid] = ports
+
+    try:
+        routes = route_edges(graph, station_offsets=offsets)
+    except Exception:  # noqa: BLE001 - routing failure surfaces elsewhere
+        return set()
+
+    crossed: set[str] = set()
+    for r in routes:
+        pts = apply_route_offsets(r, offsets)
+        src, tgt = r.edge.source, r.edge.target
+        for sid in leaf_sinks - crossed:
+            if src == sid or tgt == sid:
+                continue
+            corridor = exit_corridor_ports.get(sid)
+            if corridor and (src in corridor or tgt in corridor):
+                continue
+            bbox = icon_boxes[sid]
+            for k in range(len(pts) - 1):
+                p1, p2 = pts[k], pts[k + 1]
+                if segment_intersects_bbox(p1[0], p1[1], p2[0], p2[1], bbox):
+                    crossed.add(sid)
+                    break
+    return crossed
+
+
+def _off_track_anchor_of(graph: MetroGraph) -> dict[str, str]:
+    """Map each off-track station to the on-track same-section station it
+    hangs next to.
+
+    For an off-track *input*, the anchor is its consumer (the on-track
+    station it feeds via an out-edge).  For an off-track *output* (a
+    producer-fed sink with no on-track consumer), the anchor is its
+    producer (the on-track station feeding it via an in-edge).  Both are
+    placed *above* their anchor by the placement pass.
+
+    Off-track stations with neither an on-track consumer nor producer get
+    no entry; the caller falls back to the section's topmost on-track
+    station.
+    """
+    junction_ids = graph.junction_ids
+
+    def _on_track_neighbour(off_st: Station, edges: list[Edge]) -> str | None:
+        for edge in edges:
+            other_id = edge.target if edge.source == off_st.id else edge.source
+            other = graph.stations.get(other_id)
+            if other is None or other.is_port or other.off_track:
+                continue
+            if other.id in junction_ids or other.section_id != off_st.section_id:
+                continue
+            return other.id
+        return None
+
+    anchor_of: dict[str, str] = {}
+    for sid, off_st in graph.stations.items():
+        if not off_st.off_track or off_st.is_port or sid in junction_ids:
+            continue
+        if not off_st.section_id:
+            continue
+        consumer = _on_track_neighbour(off_st, graph.edges_from(sid))
+        if consumer is not None:
+            anchor_of[sid] = consumer
+            continue
+        producer = _on_track_neighbour(off_st, graph.edges_to(sid))
+        if producer is not None:
+            anchor_of[sid] = producer
+    return anchor_of
+
+
+def _iter_trunk_stations(
+    graph: MetroGraph, section: Section, junction_ids: set[str]
+) -> Iterator[Station]:
+    """Yield a section's real on-track (trunk) stations.
+
+    Skips ports, hidden phantoms, junctions, and off-track artefacts, leaving
+    the visible stations that define the trunk.
+    """
+    for sid in section.station_ids:
+        st = graph.stations.get(sid)
+        if (
+            st is not None
+            and not st.is_port
+            and not st.off_track
+            and not st.is_hidden
+            and sid not in junction_ids
+        ):
+            yield st
+
+
+def _is_producer_fed_sink(graph: MetroGraph, off_id: str, anchor_id: str) -> bool:
+    """Whether *off_id* is fed by *anchor_id* (a producer-fed output) rather
+    than feeding into it (a consumer-fed input)."""
+    return not any(e.target == anchor_id for e in graph.edges_from(off_id))
+
+
+def _off_track_output_below(graph: MetroGraph) -> set[str]:
+    """Off-track outputs whose producer sits on a branch off the trunk.
+
+    An off-track output (a producer-fed sink) is normally offset to the *lift*
+    side of its producer (:func:`_off_track_lift_sign`) -- above an LR trunk,
+    beside a TB one.  When the producer sits off the trunk's baseline on the
+    *fan* side of the cross axis -- i.e. it is on a branch column -- offsetting
+    the output to the lift side forces it back across the trunk.  Such an output
+    is instead offset the other way so it runs straight out.
+
+    The comparison is on the section's cross axis (:func:`section_cross_axis`):
+    Y for an LR/RL trunk, X for a TB/BT one.  The baseline is the cross
+    coordinate the through-trunk runs on -- the column shared by the most
+    on-track stations (:func:`dominant_value`), not the lift-most extreme, which
+    an asymmetric fork branch overshooting the trunk toward the lift side would
+    hijack.  A producer more than one slot onto the fan side of the baseline is a
+    branch.  The slot floor keeps a straight trunk -- every on-track station on
+    one cross coordinate -- inferring no branch outputs, so a TB trunk's normal
+    descent along the flow axis is not misread as one.
+
+    Only outputs (sinks) are considered; off-track inputs always lift toward
+    their consumer's lift side.
+    """
+    junction_ids = graph.junction_ids
+    anchor_of = _off_track_anchor_of(graph)
+
+    # Per section: the cross axis, its fan sign, and the trunk baseline as a
+    # signed coordinate (``fan_sign * cross``) anchored to the trunk column.
+    section_baseline: dict[str, tuple[str, float, float]] = {}
+    for section in graph.sections.values():
+        cross = section_cross_axis(section)
+        fan_sign = AxisFrame.secondary_sign_for(section.direction or "LR")
+        trunk_sts = list(_iter_trunk_stations(graph, section, junction_ids))
+        # A symmetric entry fork empties the trunk row -- both branches sit at
+        # +/- half pitch, so the dominant station column is a branch, not the
+        # trunk.  When every trunk station is a fanned branch, anchor the
+        # baseline on the LR port instead, so an off-track output on a
+        # below-trunk branch is recognised and dropped clear rather than lifted
+        # back across the empty trunk.
+        on_trunk = [s for s in trunk_sts if s.id not in graph.half_grid_station_ids]
+        if trunk_sts and not on_trunk and cross == "y":
+            port_y = _section_lr_port_anchor_y(graph, section)
+            if port_y is not None:
+                section_baseline[section.id] = (cross, fan_sign, fan_sign * port_y)
+                continue
+        signed = [fan_sign * getattr(st, cross) for st in trunk_sts]
+        if signed:
+            baseline_signed = dominant_value(
+                quantize_coord(v, COORD_GROUP_DIGITS_COARSE) for v in signed
+            )
+            section_baseline[section.id] = (cross, fan_sign, baseline_signed)
+
+    below: set[str] = set()
+    # A trunk-fork output has no producer-side reason to drop on its own; it is
+    # dropped only to match a same-row peer, so it is deferred to a second pass
+    # once the peers that drop unconditionally are known.
+    trunk_fork_outputs: list[tuple[str, int, str]] = []
+    for off_id, anchor_id in anchor_of.items():
+        off_st = graph.stations.get(off_id)
+        anchor_st = graph.stations.get(anchor_id)
+        if off_st is None or anchor_st is None or not off_st.section_id:
+            continue
+        # Inputs feed their anchor; only producer-fed sinks may drop down.
+        if not _is_producer_fed_sink(graph, off_id, anchor_id):
+            continue
+        baseline = section_baseline.get(off_st.section_id)
+        if baseline is None:
+            continue
+        cross, fan_sign, baseline_signed = baseline
+        producer_on_branch = (
+            fan_sign * getattr(anchor_st, cross) - baseline_signed
+            > _DOWNWARD_BRANCH_SLOP
+        )
+        if producer_on_branch or _lift_side_holds_fork_branch(
+            graph, anchor_id, off_id, cross, fan_sign, baseline_signed
+        ):
+            below.add(off_id)
+        elif _is_trunk_fork_output(
+            graph, anchor_id, off_id, cross, fan_sign, baseline_signed
+        ):
+            off_section = graph.sections.get(off_st.section_id)
+            if off_section is not None:
+                trunk_fork_outputs.append(
+                    (off_id, off_section.grid_row, off_section.id)
+                )
+
+    # A trunk-fork output drops only where a *different* section in its grid row
+    # already peels an output below the trunk: the row has set that convention
+    # (e.g. a relay-fed output below the trunk), so a lone through-station's
+    # output joins it rather than lifting against it.  Absent such a peer the
+    # default lift is kept, so a section whose row peels nothing down is
+    # untouched.
+    rows_with_below: dict[int, set[str]] = {}
+    for dropped in below:
+        sec_id = graph.stations[dropped].section_id
+        peer_section = graph.sections.get(sec_id) if sec_id else None
+        if peer_section is not None:
+            rows_with_below.setdefault(peer_section.grid_row, set()).add(
+                peer_section.id
+            )
+    for off_id, row, section_id in trunk_fork_outputs:
+        if any(peer != section_id for peer in rows_with_below.get(row, ())):
+            below.add(off_id)
+    return below
+
+
+def _lift_side_holds_fork_branch(
+    graph: MetroGraph,
+    producer_id: str,
+    sink_id: str,
+    cross: str,
+    fan_sign: float,
+    baseline_signed: float,
+) -> bool:
+    """Whether a fork branch occupies the sink's default lift side.
+
+    A producer on the trunk baseline lifts its off-track output to the lift
+    side (opposite the lane fan, :func:`_off_track_lift_sign`).  When one of the
+    producer's on-track successors has itself fanned to that lift side while the
+    fan side stays clear, seating the output there wedges it between the trunk
+    and the branch column -- and under the branch's onward diagonal.  Dropping
+    the output to the clear fan side keeps it out of that gap.
+    """
+    junction_ids = graph.junction_ids
+    sink_section = graph.stations[sink_id].section_id
+    lift_side = fan_side = False
+    for edge in graph.edges_from(producer_id):
+        sib = graph.stations.get(edge.target)
+        if sib is None or edge.target in (sink_id, producer_id):
+            continue
+        if sib.is_port or sib.off_track or sib.is_hidden:
+            continue
+        if edge.target in junction_ids or sib.section_id != sink_section:
+            continue
+        offset = fan_sign * getattr(sib, cross) - baseline_signed
+        if offset < -_DOWNWARD_BRANCH_SLOP:
+            lift_side = True
+        elif offset > _DOWNWARD_BRANCH_SLOP:
+            fan_side = True
+    return lift_side and not fan_side
+
+
+def _continuation_reaches_section_exit(
+    graph: MetroGraph, start: str, section: Section
+) -> bool:
+    """Whether an on-track chain from *start* reaches one of *section*'s ports.
+
+    Following real on-track successors that stay inside the section, does the
+    trunk leave via a port?  A chain reaching only in-section outputs never does,
+    so the section is a self-contained fan with no trunk running through it.
+    """
+    ports = section.port_ids
+    seen = {start}
+    stack = [start]
+    while stack:
+        for edge in graph.edges_from(stack.pop()):
+            target = edge.target
+            if target in ports:
+                return True
+            if target in seen:
+                continue
+            st = graph.stations.get(target)
+            if (
+                st is None
+                or st.section_id != section.id
+                or st.off_track
+                or st.is_terminus
+                or st.is_hidden
+            ):
+                continue
+            seen.add(target)
+            stack.append(target)
+    return False
+
+
+def _forks_trunk_into_output_and_exit(
+    graph: MetroGraph,
+    producer_id: str,
+    sink_id: str,
+    *,
+    signed_pos: Callable[[str], float],
+    baseline_signed: float,
+    reaches_exit: Callable[[str], bool],
+) -> bool:
+    """Structural core of a trunk-fork output.
+
+    True when *producer_id* sits on the trunk baseline and forks into an
+    on-track continuation carrying its whole line bundle onward to a section exit
+    plus the dead-end output *sink_id*, with the fan side empty.  ``signed_pos``
+    returns ``fan_sign * cross`` for a node and ``reaches_exit`` whether an
+    on-track chain from it leaves the section: the peel decision supplies these
+    from settled coordinates, and the earlier X-spacing reservation -- which must
+    predict the drop before coordinates settle -- supplies them from the
+    pre-placement track map.
+    """
+    if graph.stations.get(producer_id) is None:
+        return False
+    if abs(signed_pos(producer_id) - baseline_signed) > _DOWNWARD_BRANCH_SLOP:
+        return False
+    junction_ids = graph.junction_ids
+    sink_section = graph.stations[sink_id].section_id
+    producer_lines = set(graph.station_lines(producer_id))
+    has_continuation = False
+    for edge in graph.edges_from(producer_id):
+        sib = graph.stations.get(edge.target)
+        if sib is None or edge.target in (sink_id, producer_id):
+            continue
+        if sib.is_port or sib.off_track or sib.is_hidden:
+            continue
+        if edge.target in junction_ids or sib.section_id != sink_section:
+            continue
+        offset = signed_pos(edge.target) - baseline_signed
+        if offset > _DOWNWARD_BRANCH_SLOP:
+            return False
+        # The fan-side veto above must see every sibling, so the loop cannot
+        # return on the first continuation; the exit check below, though, only
+        # needs to confirm one, so skip it once one is known.
+        if abs(offset) > _DOWNWARD_BRANCH_SLOP or has_continuation:
+            continue
+        if set(graph.station_lines(edge.target)) != producer_lines:
+            continue
+        if reaches_exit(edge.target):
+            has_continuation = True
+    return has_continuation
+
+
+def _is_trunk_fork_output(
+    graph: MetroGraph,
+    producer_id: str,
+    sink_id: str,
+    cross: str,
+    fan_sign: float,
+    baseline_signed: float,
+) -> bool:
+    """Whether the output forks off a trunk station that carries on past it.
+
+    True when the producer sits on the trunk baseline and forks into a
+    through-station carrying its whole line bundle onward to a section exit plus
+    this dead-end output.  Such an output has no producer-side reason to drop --
+    its producer is on the trunk, not a branch -- so on its own it keeps the
+    default lift; the caller drops it only to match a same-row peer.  The fan
+    side must be empty: a sibling branch already fanned there (a diamond's lower
+    arm) would collide with an output dropped onto it.
+    """
+    sink_section_id = graph.stations[sink_id].section_id
+    section = graph.sections.get(sink_section_id) if sink_section_id else None
+    if section is None:
+        return False
+    return _forks_trunk_into_output_and_exit(
+        graph,
+        producer_id,
+        sink_id,
+        signed_pos=lambda node: fan_sign * getattr(graph.stations[node], cross),
+        baseline_signed=baseline_signed,
+        reaches_exit=lambda node: _continuation_reaches_section_exit(
+            graph, node, section
+        ),
+    )
+
+
+def _off_track_groups(
+    graph: MetroGraph,
+) -> dict[str, tuple[str, dict[str, list[Station]]]]:
+    """Group off-track stations by section and anchor.
+
+    Returns a mapping ``section_id -> (fallback_anchor_id, groups)`` where
+    ``groups`` maps anchor-station-id (or ``""`` for off-track stations
+    with neither an on-track consumer nor producer) to a list of off-track
+    stations hanging off that anchor.  An input's anchor is its consumer; a
+    producer-fed sink's anchor is its producer (see
+    :func:`_off_track_anchor_of`).  ``fallback_anchor_id`` is the topmost
+    on-track station in the section, used for the ``""`` bucket.
+    """
+    junction_ids = graph.junction_ids
+
+    by_section: dict[str, list[Station]] = defaultdict(list)
+    for sid, st in graph.stations.items():
+        if not st.off_track or st.is_port or sid in junction_ids:
+            continue
+        if not st.section_id:
+            continue
+        by_section[st.section_id].append(st)
+
+    anchor_of = _off_track_anchor_of(graph)
+
+    result: dict[str, tuple[str, dict[str, list[Station]]]] = {}
+    for sec_id, off_stations in by_section.items():
+        section = graph.sections.get(sec_id)
+        if not section:
+            continue
+        anchor_pairs = [
+            (st.y, st.id) for st in _iter_trunk_stations(graph, section, junction_ids)
+        ]
+        if not anchor_pairs:
+            continue
+        fallback_id = min(anchor_pairs)[1]
+        groups: dict[str, list[Station]] = defaultdict(list)
+        for st in off_stations:
+            groups[anchor_of.get(st.id, "")].append(st)
+        result[sec_id] = (fallback_id, groups)
+    return result
+
+
+def _section_distinct_trunk_cross_coords(
+    graph: MetroGraph,
+    section: Section,
+    junction_ids: set[str],
+) -> set[float]:
+    """Distinct cross-axis coords of a section's on-track (trunk) stations.
+
+    The cross axis is the one lines stack along: Y for an LR/RL section, X
+    for a TB/BT one (:func:`section_cross_axis`).  On-track means a real,
+    visible station: not a port, hidden phantom, junction, or off-track
+    artefact.  Used to detect single-trunk sections (one distinct cross
+    coord), which carry no parallel tracks.
+    """
+    axis = section_cross_axis(section)
+    return {
+        quantize_coord(getattr(st, axis), COORD_GROUP_DIGITS_COARSE)
+        for st in _iter_trunk_stations(graph, section, junction_ids)
+    }
+
+
+def _is_single_trunk_section(
+    graph: MetroGraph,
+    section: Section | None,
+    junction_ids: set[str],
+) -> bool:
+    """A section laid out as one trunk line (no parallel tracks), any flow."""
+    return (
+        section is not None
+        and len(_section_distinct_trunk_cross_coords(graph, section, junction_ids)) == 1
+    )
+
+
+def _off_track_lift_step(
+    graph: MetroGraph,
+    section: Section | None,
+    junction_ids: set[str],
+    y_spacing: float,
+) -> float:
+    """Per-section cross-axis step for offsetting off-track stations.
+
+    An off-track icon is offset from its anchor along the section's cross axis
+    (:func:`section_cross_axis`): Y for an LR/RL trunk, X for a TB/BT one.
+
+    A vertical-flow (TB/BT) section offsets along X by the section's resolved
+    column pitch -- the same pitch the spread loop may have widened to clear
+    label overlaps and that the fan branches are placed on -- so the spur stays
+    symmetric with those branches.
+
+    A horizontal-flow section offsets along Y by ``y_spacing``.  When it is a
+    single horizontal trunk (no parallel tracks) the diagonal-label band that
+    widened the graph-wide ``y_spacing`` is wasted vertical room that would
+    strand the icon far above the trunk, so it lifts by the base content pitch
+    (``graph._base_y_spacing``) instead.  Multi-track sections, and any section
+    with no recorded base pitch, keep ``y_spacing``.  The base only applies when
+    strictly smaller, so an explicit ``y_spacing`` below the base is never
+    widened by this path.
+    """
+    if section is not None and section_cross_axis(section) == "x":
+        return graph._resolved_x_spacing or X_SPACING
+    base = graph._base_y_spacing
+    if base is None or base >= y_spacing:
+        return y_spacing
+    if not _is_single_trunk_section(graph, section, junction_ids):
+        return y_spacing
+    return base
+
+
+def _off_track_lift_sign(section: Section | None) -> float:
+    """Cross-axis direction an off-track input is offset from its anchor.
+
+    An LR/RL input lifts *above* the trunk (toward smaller Y); a TB input sits
+    *beside* it.  The offset runs opposite the lane-fan direction
+    (:attr:`AxisFrame.secondary_sign`) -- lanes fan down (+Y) on LR so inputs
+    lift up (-Y); lanes fan left (-X) on TB so inputs sit right (+X).  A
+    producer-fed sink on a downward branch is offset the other way (see
+    :func:`_off_track_output_below`).
+    """
+    direction = section.direction if section is not None else "LR"
+    return -AxisFrame.secondary_sign_for(direction or "LR")
+
+
+def _per_column_stack_steps(
+    innermost_first: list[Station], flow_axis: str
+) -> dict[str, int]:
+    """Stack rank (1 = innermost, nearest the anchor) keyed per column.
+
+    ``innermost_first`` lists the off-track stations sharing one anchor in
+    order of increasing distance from it.  A "column" is a shared flow-axis
+    coordinate (X for an LR/RL trunk, Y for a TB/BT one); each column counts
+    its own stack independently, so two stations sharing an anchor but sitting
+    in different columns each start at rank 1 rather than towering one above
+    the other.
+    """
+    steps: dict[str, int] = {}
+    per_col: dict[float, int] = defaultdict(int)
+    for st in innermost_first:
+        col = quantize_coord(getattr(st, flow_axis), COORD_GROUP_DIGITS_COARSE)
+        per_col[col] += 1
+        steps[st.id] = per_col[col]
+    return steps
+
+
+def _dead_end_producer_anchor(
+    graph: MetroGraph, section: Section, anchor_id: str
+) -> bool:
+    """Whether *anchor_id* is a producer with nothing on its own row to protect.
+
+    An off-track output is normally offset a step off its producer's row so
+    the icon doesn't sit on a line-track slot the producer's other in-section
+    successor needs.  When *anchor_id* feeds one or more off-track sinks in
+    *section* and has no other in-section successor, there is nothing on its
+    row to protect and the whole stack can seat one step closer, directly on
+    the producer's own cross coordinate.
+    """
+    if not anchor_id:
+        return False
+    sink_ids = {
+        sid
+        for sid in section.station_ids
+        if graph.stations[sid].off_track
+        and any(e.source == anchor_id for e in graph.edges_to(sid))
+    }
+    if not sink_ids:
+        return False
+    in_section = set(section.station_ids)
+    return not any(
+        e.target in in_section and e.target not in sink_ids
+        for e in graph.edges_from(anchor_id)
+    )
+
+
+def _place_off_track_relative_to_anchors(
+    graph: MetroGraph,
+    y_spacing: float,
+    section_id: str,
+    fallback_consumer_id: str,
+    by_consumer: dict[str, list[Station]],
+    below: set[str] | None = None,
+) -> tuple[float | None, float | None]:
+    """Offset each off-track station ``n`` steps from its anchor on the cross axis.
+
+    The cross axis is the one the section stacks lines along
+    (:func:`section_cross_axis`): Y for an LR/RL trunk, X for a TB/BT one.  The
+    off-track station keeps its own flow-axis coordinate (its layer) and only
+    its cross coordinate is set here, so an input sits beside where its data is
+    read whatever the section's flow direction.
+
+    Stations not in ``below`` are offset toward the lift side
+    (:func:`_off_track_lift_sign`) -- *above* an LR trunk, *beside* a TB one;
+    those in ``below`` -- producer-fed outputs on a downward branch -- are
+    offset the opposite way so they run straight out instead of crossing back
+    over the trunk.
+
+    Multiple stations sharing an anchor stack in ``step`` increments away from
+    it.  When the natural slot would put the icon on top of another trunk
+    station's line band in the same column, the slot is bumped further from the
+    anchor by additional ``step`` increments until the icon clears every
+    line-bearing track in its column and every sibling off-track already placed
+    in the same column.
+
+    Returns ``(lift_extreme, opp_extreme)`` -- the cross coordinate of the
+    station placed furthest toward the lift side, and furthest opposite it --
+    with ``None`` for a side that placed no stations.
+    """
+    section = graph.sections.get(section_id)
+    junction_ids = graph.junction_ids
+    below = below or set()
+
+    flow_axis, cross_axis = section_axes(section)
+    lift_sign = _off_track_lift_sign(section)
+    step = _off_track_lift_step(graph, section, junction_ids, y_spacing)
+
+    # Track already-placed off-track cross coords per column so a bumped icon
+    # doesn't crash into a sibling off-track already at the desired slot.
+    used_cross_per_col: dict[float, list[float]] = defaultdict(list)
+
+    # Iterate consumers from the side furthest opposite the lift first.  The
+    # bumping mechanism only pushes toward the lift side, so placing the
+    # furthest-opposite consumer's icon first lets subsequent icons stack past
+    # it.  The resulting visual order matches the consumer order regardless of
+    # edge declaration order in the mmd.
+    def _consumer_anchor_cross(item: tuple[str, list[Station]]) -> float:
+        cid = item[0] if item[0] else fallback_consumer_id
+        a = graph.stations.get(cid)
+        return lift_sign * getattr(a, cross_axis) if a is not None else 0.0
+
+    ordered_consumers = sorted(by_consumer.items(), key=_consumer_anchor_cross)
+
+    lift_extreme: float | None = None
+    opp_extreme: float | None = None
+
+    def _place(
+        st: Station, candidate: float, bump_dir: float, consider_ports: bool
+    ) -> None:
+        nonlocal lift_extreme, opp_extreme
+        if section is not None:
+            candidate = _bump_off_track_clear_of_trunks(
+                graph,
+                st,
+                candidate,
+                step,
+                section,
+                junction_ids,
+                sibling_cross=used_cross_per_col[
+                    quantize_coord(getattr(st, flow_axis), COORD_GROUP_DIGITS_COARSE)
+                ],
+                direction=bump_dir,
+                consider_ports=consider_ports,
+            )
+        setattr(st, cross_axis, candidate)
+        used_cross_per_col[
+            quantize_coord(getattr(st, flow_axis), COORD_GROUP_DIGITS_COARSE)
+        ].append(candidate)
+        signed = lift_sign * candidate
+        if bump_dir == lift_sign:
+            if lift_extreme is None or signed > lift_sign * lift_extreme:
+                lift_extreme = candidate
+        elif opp_extreme is None or signed < lift_sign * opp_extreme:
+            opp_extreme = candidate
+
+    for consumer_id, stations in ordered_consumers:
+        anchor_id = consumer_id if consumer_id else fallback_consumer_id
+        anchor = graph.stations.get(anchor_id)
+        if anchor is None:
+            continue
+        anchor_cross = getattr(anchor, cross_axis)
+        # Preserve original order: station closest to the trunk stays innermost
+        # in the stack.
+        stations.sort(key=lambda s: (getattr(s, cross_axis), s.id))
+        up_stations = [s for s in stations if s.id not in below]
+        down_stations = [s for s in stations if s.id in below]
+
+        up_steps = _per_column_stack_steps(list(reversed(up_stations)), flow_axis)
+        down_steps = _per_column_stack_steps(down_stations, flow_axis)
+        dead_end = section is not None and _dead_end_producer_anchor(
+            graph, section, anchor_id
+        )
+        rank_shift = 1 if dead_end else 0
+        for st in up_stations:
+            candidate = anchor_cross + lift_sign * (up_steps[st.id] - rank_shift) * step
+            _place(st, candidate, lift_sign, dead_end)
+        for st in down_stations:
+            candidate = (
+                anchor_cross - lift_sign * (down_steps[st.id] - rank_shift) * step
+            )
+            _place(st, candidate, -lift_sign, dead_end)
+    return lift_extreme, opp_extreme
+
+
+def _feeding_run_spans_flow_coord(
+    graph: MetroGraph,
+    trunk_st: Station,
+    off_flow: float,
+    flow_axis: str,
+    in_section: set[str],
+) -> bool:
+    """Whether some run feeding *trunk_st* actually spans ``off_flow``.
+
+    The run drawn into ``trunk_st`` starts at its own in-section
+    predecessor(s) (``in_section`` -- station and port ids of the section
+    *trunk_st* belongs to), not at the icon.  A predecessor whose flow
+    coordinate also lies downstream of ``off_flow`` means that run never
+    reaches back far enough to cross the icon's column, even though
+    ``trunk_st`` itself is downstream.  With no in-section predecessor, be
+    conservative and treat the trunk station as contesting.
+    """
+    preds = [e.source for e in graph.edges_to(trunk_st.id) if e.source in in_section]
+    if not preds:
+        return True
+    trunk_flow = getattr(trunk_st, flow_axis)
+    for pid in preds:
+        pred_st = graph.stations.get(pid)
+        if pred_st is None:
+            continue
+        pred_flow = getattr(pred_st, flow_axis)
+        lo, hi = min(pred_flow, trunk_flow), max(pred_flow, trunk_flow)
+        if lo - SAME_COORD_TOLERANCE <= off_flow <= hi + SAME_COORD_TOLERANCE:
+            return True
+    return False
+
+
+def _bump_off_track_clear_of_trunks(
+    graph: MetroGraph,
+    off_st: Station,
+    candidate: float,
+    step: float,
+    section: Section,
+    junction_ids: set[str],
+    sibling_cross: list[float] | None = None,
+    direction: float = -1.0,
+    consider_ports: bool = False,
+) -> float:
+    """Return *candidate* shifted so the off-track icon clears any trunk line
+    track passing through the icon's column.
+
+    The icon is offset from its anchor along the section's cross axis
+    (:func:`section_cross_axis`).  A trunk station downstream of the icon in
+    flow carries a band of line tracks spread across the cross axis; when that
+    band overlaps the icon's cross extent, the run into that trunk crosses the
+    icon.  Bump away from the anchor (``direction`` = the signed cross-step
+    that offsets the icon toward *candidate*) by ``step`` increments until it
+    clears.
+
+    ``consider_ports`` also treats the section's own entry/exit ports as
+    contesting bands: a sibling branch's run into a shared port can cross an
+    icon seated on its producer's row with no other in-section successor to
+    protect it, so a dead-end-producer output needs the port considered too.
+    Ordinary off-track placement leaves this off, since a port's band never
+    needed to matter while every off-track station started pre-offset a step
+    clear of it.
+
+    ``sibling_cross`` lists cross coords already taken by other off-track icons
+    in the same column - the bump must also clear those (within one ``step``
+    slot) so two icons don't end up in the same slot.
+
+    Capped at six steps to avoid runaway offsets.
+    """
+    if step <= 0:
+        return candidate
+
+    flow_axis, cross_axis = section_axes(section)
+    flow_sign = AxisFrame.flow_sign(section.direction or "LR")
+    off_flow = getattr(off_st, flow_axis)
+    # The icon's half-extent along the cross axis: file-icon half-height on Y,
+    # half-width on X.
+    icon_half = (
+        icon_half_height_approx() if cross_axis == "y" else terminus_width_approx() / 2
+    )
+
+    # Limit attempts so a pathological column doesn't pull the icon off-canvas.
+    MAX_STEPS = 6
+
+    offset_step = graph_offset_step(graph)
+    in_section = set(section.station_ids) | section.port_ids
+
+    # Find trunk stations -- and, when consider_ports asks for it, the
+    # section's own entry/exit ports, whose converging line band can cross
+    # the icon just as a station's can -- whose line bundle crosses the
+    # icon's column: downstream of the icon in flow is necessary but not
+    # sufficient, since the run feeding a downstream station may itself start
+    # further downstream than the icon and so never reach the icon's column.
+    port_ids = section.port_ids
+    trunk_bands: list[float] = []
+    for sid in section.station_ids:
+        st2 = graph.stations.get(sid)
+        if st2 is None or st2.is_hidden:
+            continue
+        if st2.is_port and not (consider_ports and sid in port_ids):
+            continue
+        if st2.id == off_st.id or sid in junction_ids:
+            continue
+        if st2.off_track or st2.is_terminus:
+            continue
+        if flow_sign * (getattr(st2, flow_axis) - off_flow) <= SAME_COORD_TOLERANCE:
+            continue
+        if not _feeding_run_spans_flow_coord(
+            graph, st2, off_flow, flow_axis, in_section
+        ):
+            continue
+        # The line-track band spread across the cross axis at this trunk
+        # station: each line sits at ``st2_cross + offset(line)``, bounded by
+        # ``(n_lines - 1) * OFFSET_STEP`` centred on the station's cross coord.
+        n_lines = len(graph.station_lines(sid))
+        if n_lines == 0:
+            continue
+        half_span = (n_lines - 1) * offset_step / 2
+        st2_cross = getattr(st2, cross_axis)
+        trunk_bands.append(st2_cross - half_span)
+        trunk_bands.append(st2_cross + half_span)
+
+    sibs = list(sibling_cross or [])
+
+    if not trunk_bands and not sibs:
+        return candidate
+
+    # A captioned icon's drawn box reaches past its centre along the flow axis
+    # (the caption hangs beneath the icon), so it eats into a same-column
+    # sibling's clearance only when the sibling stacks along that same axis --
+    # i.e. on a horizontal (cross=Y) section.  On a vertical section the icons
+    # stack along X while captions grow along Y, so the caption never encroaches.
+    caption_line_count = off_st.terminus_caption_line_count
+    caption_reach = (
+        ICON_CAPTION_GAP + ICON_CAPTION_FONT_HEIGHT * caption_line_count
+        if cross_axis == "y" and caption_line_count
+        else 0.0
+    )
+    sibling_clearance = 2 * icon_half + caption_reach + OFF_TRACK_TRUNK_CLEARANCE_MARGIN
+
+    def _overlaps(c: float) -> bool:
+        lo = c - icon_half - OFF_TRACK_TRUNK_CLEARANCE_MARGIN
+        hi = c + icon_half + OFF_TRACK_TRUNK_CLEARANCE_MARGIN
+        for band_lo, band_hi in zip(trunk_bands[::2], trunk_bands[1::2]):
+            if not (hi < band_lo or band_hi < lo):
+                return True
+        for sc in sibs:
+            if abs(sc - c) < sibling_clearance:
+                return True
+        return False
+
+    steps = 0
+    while _overlaps(candidate) and steps < MAX_STEPS:
+        candidate += direction * step
+        steps += 1
+    return candidate
+
+
+def _lift_off_track_stations(
+    graph: MetroGraph,
+    y_spacing: float,
+    section_y_padding: float,
+) -> None:
+    """Offset off_track stations clear of their consumer's trunk slot.
+
+    Off-track stations are file-input/output nodes that should not consume a
+    line-track slot.  Each marked station is offset one step along its
+    section's cross axis from its consumer (the on-track station it feeds) --
+    above an LR/RL trunk, beside a TB/BT one -- so the input sits adjacent to
+    where its data is read rather than at a uniform section band.  When several
+    off-track inputs feed the same consumer, they stack in ``step`` increments.
+
+    If an off-track station has no on-track consumer in the same section, it
+    falls back to the section's topmost on-track station as its anchor.  After
+    placement, the section bbox grows along the cross axis to fit the band, and
+    same-side ports are nudged back to the new edge.
+
+    Caller is responsible for invoking ``_shift_graph_into_canvas``
+    afterwards: the bbox growth here can push the topmost section above the
+    canvas top margin set by Stage 1.5.
+    """
+    groups = _off_track_groups(graph)
+    if not groups:
+        return
+
+    below = _off_track_output_below(graph)
+    for sec_id, (fallback_id, by_consumer) in groups.items():
+        section = graph.sections.get(sec_id)
+        if section is None:
+            continue
+        lift_extreme, opp_extreme = _place_off_track_relative_to_anchors(
+            graph, y_spacing, sec_id, fallback_id, by_consumer, below
+        )
+        _grow_off_track_band_edges(
+            graph,
+            section,
+            lift_extreme,
+            opp_extreme,
+            section_y_padding,
+            fit_lift_edge=False,
+        )
+
+
+def _cross_bbox_edges(section: Section, axis: str) -> tuple[float, float]:
+    """The section's ``(cross_min, cross_max)`` bbox edges on *axis*."""
+    if axis == "x":
+        return section.bbox_x, section.bbox_x + section.bbox_w
+    return section.bbox_y, section.bbox_y + section.bbox_h
+
+
+def _off_track_fit_edge(
+    graph: MetroGraph,
+    section: Section,
+    axis: str,
+    extreme: float,
+    padding: float,
+    *,
+    toward_min: bool,
+) -> float:
+    """Cross-axis bbox edge giving the off-track band one full padding band.
+
+    Returns ``extreme -/+ padding`` (minus toward the cross-min edge, plus
+    toward the cross-max edge) clamped so the refit never clips other content
+    sitting past the band, nor strands a port on the far side of the new edge.
+    Ports on the edge being moved follow it and impose no bound.  Used by the
+    reversible off-track reanchor: unlike the grow-only edge helpers, the
+    caller applies this in both directions so a stale too-large box is
+    reclaimed.
+    """
+    sign = -1.0 if toward_min else 1.0
+    combine = min if toward_min else max
+    target = extreme + sign * padding
+    for cid in _content_station_ids(graph, section):
+        target = combine(target, getattr(graph.stations[cid], axis) + sign * padding)
+    moved_side = (
+        (PortSide.TOP if axis == "y" else PortSide.LEFT)
+        if toward_min
+        else (PortSide.BOTTOM if axis == "y" else PortSide.RIGHT)
+    )
+    # Ports off the moved edge bound the fit so they aren't stranded past the
+    # new edge; ports on that edge follow it.  This port clamp is deliberately
+    # narrower than the bbox helpers' all-port clamp, so only the content set
+    # is shared, not the port handling.
+    for pid in section.entry_ports + section.exit_ports:
+        port = graph.ports.get(pid)
+        port_st = graph.stations.get(pid)
+        if not port or not port_st or port.side == moved_side:
+            continue
+        target = combine(target, getattr(port_st, axis))
+    return target
+
+
+def _grow_off_track_band_edges(
+    graph: MetroGraph,
+    section: Section,
+    lift_extreme: float | None,
+    opp_extreme: float | None,
+    padding: float,
+    *,
+    fit_lift_edge: bool,
+) -> None:
+    """Extend a section's bbox to fit its placed off-track band on the cross axis.
+
+    ``lift_extreme`` / ``opp_extreme`` are the extreme cross coordinates from
+    :func:`_place_off_track_relative_to_anchors`.  The lift side is the cross-min
+    edge when inputs lift toward smaller coords (LR/RL up) or the cross-max edge
+    when they sit toward larger coords (TB right); the opposite side is the other
+    edge.  ``fit_lift_edge`` makes the lift-side edge reversible (grow **or**
+    shrink to hug the band, for the reanchor passes); the opposite edge always
+    grows only.
+    """
+    axis = section_cross_axis(section)
+    lift_toward_min = _off_track_lift_sign(section) < 0
+
+    def _fit_edge(coord: float | None, toward_min: bool, reversible: bool) -> None:
+        if coord is None:
+            return
+        if not reversible:
+            grow = (
+                grow_section_bbox_min_edge if toward_min else grow_section_bbox_max_edge
+            )
+            grow(
+                graph, section, axis, coord - padding if toward_min else coord + padding
+            )
+            return
+        target = _off_track_fit_edge(
+            graph, section, axis, coord, padding, toward_min=toward_min
+        )
+        edge = _cross_bbox_edges(section, axis)[0 if toward_min else 1]
+        if abs(target - edge) > SAME_COORD_TOLERANCE:
+            move = (
+                move_section_bbox_min_edge if toward_min else move_section_bbox_max_edge
+            )
+            move(graph, section, axis, target)
+
+    _fit_edge(lift_extreme, lift_toward_min, fit_lift_edge)
+    _fit_edge(opp_extreme, not lift_toward_min, reversible=False)
+    _grow_flow_edges_for_off_track_icons(graph, section)
+
+
+def _grow_flow_edges_for_off_track_icons(graph: MetroGraph, section: Section) -> None:
+    """Grow the flow-axis bbox edges to contain each off-track icon's extent.
+
+    An off-track input sits a layer *back* along the flow axis from its
+    consumer (the section's data enters before its first processing step), so
+    its file icon can reach past the flow-back bbox edge -- the top of a TB
+    section, whose inputs stack above the first station.  A horizontal section
+    already reserves this flow-back room in its entry column, so the grow-only
+    edges are a no-op there.
+    """
+    from nf_metro.layout.phases.single_section import _terminus_y_overhang
+
+    flow, _cross = section_axes(section)
+    junction_ids = graph.junction_ids
+    for sid in section.station_ids:
+        st = graph.stations.get(sid)
+        if st is None or not st.off_track or st.is_port or sid in junction_ids:
+            continue
+        coord = getattr(st, flow)
+        if flow == "y":
+            above, below = _terminus_y_overhang(st, section.direction or "LR", graph)
+        else:
+            above = below = terminus_width_approx() / 2
+        grow_section_bbox_min_edge(graph, section, flow, coord - above)
+        grow_section_bbox_max_edge(graph, section, flow, coord + below)
+
+
+def _reanchor_off_track_to_consumer(
+    graph: MetroGraph,
+    y_spacing: float,
+    section_y_padding: float = SECTION_Y_PADDING,
+) -> None:
+    """Re-place off-track inputs relative to consumer Ys after final snap.
+
+    Stage 5.2 placed each off-track input at ``consumer.y - n*y_spacing``
+    using the consumer's pre-snap Y.  Later phases (compaction, grid
+    snap, fan re-centering) may shift the consumer, which would
+    collapse or shrink the gap between the off-track input and its
+    consumer.  This pass re-pins each off-track at
+    ``consumer.y - n*y_spacing`` on the consumer's final snapped Y.
+
+    **Precondition** (``graph._consumers_grid_snapped``): on-track
+    consumers must already be grid-snapped (Stage 6.4).  Re-anchoring
+    against non-final consumer Ys lands the icon off-grid, so the pass
+    raises :class:`PhaseInvariantError` rather than depending on its
+    call position to guarantee snapped consumers.
+
+    The section top is then recomputed **to fit** the off-track band:
+    it grows when the band rises above the current top minus padding and
+    shrinks when an earlier (now stale) bbox top sits too tall, so the
+    result is order-independent.  Same-section TOP ports follow the new
+    top edge.
+
+    Caller is responsible for invoking ``_shift_graph_into_canvas``
+    afterwards: the upward bbox growth here can push the topmost
+    section above the canvas top margin (mirrors the same caller
+    contract as ``_lift_off_track_stations``).
+    """
+    # Function-local: a module-level import would close the cycle
+    # off_track -> guards -> single_section -> off_track.
+    from nf_metro.layout.phases.guards import PhaseInvariantError
+
+    if not graph._consumers_grid_snapped:
+        raise PhaseInvariantError(
+            "_reanchor_off_track_to_consumer requires grid-snapped consumers "
+            "(graph._consumers_grid_snapped); it must run after the Stage 6.4 "
+            "snap, otherwise off-track icons re-anchor to non-final Ys"
+        )
+    groups = _off_track_groups(graph)
+    if not groups:
+        return
+
+    below = _off_track_output_below(graph)
+    for sec_id, (fallback_id, by_consumer) in groups.items():
+        lift_extreme, opp_extreme = _place_off_track_relative_to_anchors(
+            graph, y_spacing, sec_id, fallback_id, by_consumer, below
+        )
+        section = graph.sections.get(sec_id)
+        if section is None:
+            continue
+        _grow_off_track_band_edges(
+            graph,
+            section,
+            lift_extreme,
+            opp_extreme,
+            section_y_padding,
+            fit_lift_edge=True,
+        )

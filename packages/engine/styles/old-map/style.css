@@ -1,8 +1,6 @@
-/* Antique Map */
-:root { --ink: #2b1d12; --soft: #6c5e4c; --muted: #9a8c75; --band-color: rgba(255,255,255,0.92); --latin: Georgia, 'Times New Roman', serif; }
-#frame { background: #ebddbc; color: var(--ink); }
-#vignette { background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 62%, rgba(0,0,0,0.07) 100%); }
-.chrome::before { background: linear-gradient(to bottom, #ebddbc 0%, #ebddbcF0 55%, transparent 100%); }
-
-.subs span { color: #2b1d12; background: rgba(255,255,255,0.92); border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 0 0 1.5px rgba(0,0,0,0.10); }
+/* Antique Map; palette names retain their literal colour meaning. */
+:root { --ink: #2B1D12; --soft: #5d4f3e; --muted: #857762; --hand: Georgia, 'LXGW WenKai', serif; --latin: Georgia, 'LXGW WenKai', serif; }
+#frame { background: #EBDDBC; color: var(--ink); }
+#vignette { background: none; }
+.chrome::before { background: linear-gradient(to bottom, #EBDDBC, #EBDDBCEE 55%, transparent); }
+.subs span { color: #2B1D12; background: #EBDDBCF2; border-radius: 0; box-shadow: none; }

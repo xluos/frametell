@@ -1,10 +1,35 @@
-/* Manga · benchmark film for the open-source Studio. Drawn to styles/manga/GRAMMAR.md; also this style's regression test. */
-(function (root) {
-  const META = { style: 'manga', title: "紧张时为什么心跳变快", name: "manga", gap: 0.6 };
-  const PAGES = [
-    { id: 'p01', section: '问题', title: "紧张时为什么心跳变快", cues: [ "紧张时为什么心跳变快？", "先别急着回答。", "我们把它摆到眼前看。" ] },
-    { id: 'p02', section: '过程', title: '怎么发生', cues: [ "速度线集中到胸口", "画面一格比一格近", "画面一格比一格近" ] },
-    { id: 'p03', section: '答案', title: '原来如此', cues: [ "砰、砰", "声音也跟着变急。", "这就是答案" ] },
-  ];
-  root.SCRIPT = { META, PAGES };
+/* Local renderer capability benchmark, not a hosted Frametell film. */
+(function(root){
+  root.SCRIPT={META:{style:'manga',title:"顿悟占满分镜",name:'manga',gap:.6},PAGES:[
+  {
+    "id": "p01",
+    "section": "建立场景",
+    "title": "顿悟占满分镜",
+    "cues": [
+      "两个墨框留住过程，集中线强调顿悟。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  },
+  {
+    "id": "p02",
+    "section": "观察动作",
+    "title": "顿悟占满分镜",
+    "cues": [
+      "两个墨框留住过程，集中线强调顿悟。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  },
+  {
+    "id": "p03",
+    "section": "确认结果",
+    "title": "顿悟占满分镜",
+    "cues": [
+      "两个墨框留住过程，集中线强调顿悟。",
+      "观察物件怎样变化。",
+      "动作停稳，看看结果。"
+    ]
+  }
+]};
 })(typeof window !== 'undefined' ? window : globalThis);

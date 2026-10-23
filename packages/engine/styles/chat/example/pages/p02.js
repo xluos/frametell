@@ -1,17 +1,11 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'green' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.rect(640, 200, 480, 620, { r: 46, at:-1, color:'ink', fill:'paper', sw:4 });
-  P.rect(680, 270, 320, 80, { r: 20, at:-1, color:'muted', fill:'mutedF' });
-  P.rect(760, 390, 320, 80, { r: 20, at:P.c(0), color:'green', fill:'greenF' });
-  P.text('链接', { x: 920, y: 442, w: 200, align:'c', size: 34, color:'green', at:P.c(0,0.2), cps:3 });
-  P.circle(1000, 410, 30, { at:P.c(1), color:'blue', fill:'blue' });
-  P.text('!', { x: 1000, y: 424, w: 40, align:'c', size: 30, weight:700, color:'paper', at:P.c(1,0.1), cps:1 });
-  for (const [x,i] of [[880,0],[920,1],[960,2]]) P.circle(x, 600, 14, { at:P.c(2)+i*0.15, color:'muted' });
-  P.text('先核实', { x: 1300, y: 560, w: 260, size: 38, color:'blue', at:P.c(2,0.4), cps:4 });
+// Original chat-rap-video v11 data model and time units.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N,host) => {
+    const conversation=N.create(host,{
+      header:{name:'核对之后再回复'},
+      characters:[{id:'a',side:'left',name:'问'},{id:'b',side:'right',name:'答'}],
+      elements:[{"id": "m0", "type": "bubble", "from": "a", "text": "截图只展示了一部分。", "start_ms": 0, "duration_ms": 5000, "emotion": "normal", "camera_mode": "bubble"}, {"id": "m1", "type": "bubble", "from": "b", "text": "把上下文一起核对。", "start_ms": 3200, "duration_ms": 5000, "emotion": "normal", "camera_mode": "bubble"}, {"id": "m2", "type": "bubble", "from": "a", "text": "现在知道差异在哪里了。", "start_ms": 6400, "duration_ms": 5000, "emotion": "normal", "camera_mode": "bubble"}]
+    });
+    return {render:t=>conversation.renderAt(Math.max(0,t)*1000),dispose:()=>conversation.dispose()};
+  });
 });

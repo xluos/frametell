@@ -1,15 +1,7 @@
-ENGINE.visual('p01', (P) => {
-  P.title("山为什么近浓远淡", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  P.ellipse(880, 560, 1500, 260, { at: -1, color: 'faint', sw: 2 });
-  P.path('M200 700 Q420 380 560 700 Q700 420 880 700 Q1040 400 1200 700 Q1380 440 1560 700', { at: -1, color: 'ink', sw: 4 });
-  P.path('M360 700 Q520 520 640 700 M1060 700 Q1200 540 1320 700', { at: -1, color: 'muted', sw: 3 });
-  P.text('?', { x: 880, y: 470, w: 120, align: 'c', size: 90, weight: 700, color: 'red', at: P.c(1), cps: 6 });
-  P.path('M1380 720 l70 0 l-26 -24 Z', { at: P.c(2), color: 'ink' });
-  P.line(1415, 720, 1415, 690, { at: P.c(2), color: 'ink', sw: 3 });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p01', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');N.U.setStage(host.width,host.height);
+    return t=>{c.fillStyle='#f3ecdc';c.fillRect(0,0,1920,1080);N.PAINT.inkWash(c,'mountain',Math.min(1,.2+t/3),g=>{g.beginPath();g.moveTo(260,800);g.quadraticCurveTo(790,120,1080,800);g.quadraticCurveTo(1430,300,1690,800);g.closePath();g.fillStyle='#4a4c43';g.fill();},{blur:3,halo:22,haloA:.25});};
+  });
 });

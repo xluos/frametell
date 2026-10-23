@@ -4,3 +4,5 @@
 *.jpg binary
 *.mp3 binary
 *.mp4 binary
+# Preserve upstream source bytes used by native/source-lock.json.
+packages/engine/native/sources/** -text

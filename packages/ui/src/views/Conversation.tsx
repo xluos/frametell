@@ -155,6 +155,7 @@ const PAGE_STATE: Record<PageView['status'], { text: (p?: PageView) => string; i
   ok: { text: () => t('conversation.page.ok'), icon: <Check size={14} />, tone: 'text-jade' },
   // drawn, with a check it did not pass: a warning to look at, not an error
   flagged: { text: () => t('conversation.page.flagged'), icon: <TriangleAlert size={14} />, tone: 'text-warn' },
+  unreviewed: { text: () => t('conversation.page.unreviewed'), icon: <TriangleAlert size={14} />, tone: 'text-warn' },
   failed: { text: () => t('conversation.page.failed'), icon: <TriangleAlert size={14} />, tone: 'text-seal' },
 };
 
@@ -170,7 +171,7 @@ function Pages({ run, onSelect, onPlay, selected }: { run: RunView; onSelect: (i
         const busy = p?.status === 'drawing' || p?.status === 'checking';
         // a drawn page plays where it is shown, on a double click (one click only opens it). The hint takes the status's
         // place in the row as soon as the pointer is on it: no layer over the rows either side, nothing that moves
-        const playable = p?.status === 'ok' || p?.status === 'flagged';
+        const playable = p?.status === 'ok' || p?.status === 'flagged' || p?.status === 'unreviewed';
         return (
           <li key={id}>
             <button onClick={() => onSelect(id)} onDoubleClick={playable ? () => onPlay(id) : undefined} aria-pressed={selected === id} disabled={busy}

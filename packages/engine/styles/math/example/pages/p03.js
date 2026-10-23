@@ -1,14 +1,20 @@
-ENGINE.visual('p03', (P) => {
-  P.title("原来如此", { accent: 'blue' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.rect(206, 286, 28, 28, { at: -1, color: 'faint' });
-  P.rect(206, 746, 28, 28, { at: -1, color: 'faint' });
-  P.rect(1686, 286, 28, 28, { at: -1, color: 'faint' });
-  P.rect(1686, 746, 28, 28, { at: -1, color: 'faint' });
-  P.line(180, 620, 1740, 620, { at: -1, color: 'muted', sw: 2 });
-  P.path('M520 420 L670 620 L370 620 Z M880 420 L1030 620 L730 620 Z M1240 420 L1390 620 L1090 620 Z', { at: -1, color: 'ink', fill: 'blueF' });
-  P.text('✓', { x: 880, y: 430, w: 120, align: 'c', size: 90, weight: 700, color: 'blue', at: P.c(0), cps: 4 });
-  P.arrow(1420, 470, 1420, 600, { at: P.c(1), color: 'yellow' });
-  P.text('180°', { x: 1520, y: 560, w: 180, align:'c', size: 44, color:'yellow', at: P.c(1), cps: 5 });
+// manim-web world coordinates, native geometry and native MasterTimeline.
+ENGINE.visual('p03', P => {
+  P.nativeScene((N, host) => {
+    const container = document.createElement('div'); host.root.appendChild(container);
+    const scene = new N.Scene(container, {width:host.width,height:host.height,backgroundColor:'#1c1c1c'});
+    const axes = new N.Axes({xRange:[-6, 6],yRange:[-2, 2],xLength:8,yLength:5,color:'#dddddd'});
+    axes.shift([-1.5,-0.3,0]);
+    const curve = new N.FunctionGraph({func:x=>Math.sin(x),xRange:[-6, 6],axes,color:'#58c4dd',strokeWidth:5});
+    const formula = new N.MathTex({latex:"y=\\sin(x)",color:'#ffff88',fontSize:48,position:[4,1.8,0]});
+    const ready = formula.waitForRender().then(() => {
+      scene.add(axes,curve,formula);
+      const timeline = new N.MasterTimeline();
+      timeline.addSegment([new N.Create(axes,{duration:1})]);
+      timeline.addSegment([new N.Create(curve,{duration:3})]);
+      timeline.addSegment([new N.Write(formula,{duration:1.5})]);
+      scene.setTimeline(timeline);scene.seek(0);
+    });
+    return {ready,render:t=>N.seek(scene,Math.max(0,t)),dispose:()=>scene.dispose()};
+  });
 });

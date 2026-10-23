@@ -1,0 +1,10 @@
+%%metro title: Publish a draft
+%%metro line: main | Main | #4CAF50
+%%metro line: review | Review | #2196F3 | dashed
+graph LR
+  draft[Draft]
+  revise[Review]
+  publish[Publish]
+  draft -->|main| publish
+  draft -->|review| revise
+  revise -->|review| publish

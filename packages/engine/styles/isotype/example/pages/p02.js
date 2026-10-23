@@ -1,14 +1,7 @@
-ENGINE.visual('p02', (P) => {
-  P.title("怎么发生", { accent: 'red' });
-  P.line(180, 248, 1740, 268, { at: -1, color: 'faint', sw: 2 });
-  P.line(180, 812, 1740, 792, { at: -1, color: 'faint', sw: 2 });
-  P.circle(220, 300, 28, { at: -1, color: 'faint' });
-  P.circle(220, 760, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 300, 28, { at: -1, color: 'faint' });
-  P.circle(1700, 760, 28, { at: -1, color: 'faint' });
-  function fig(x,y,c,at){ P.circle(x,y-46,34,{at,color:c,sw:3}); P.line(x,y-24,x,y+40,{at,c,sw:5}); P.line(x,y,x-34,y+10,{at,c,sw:5}); P.line(x,y,x+34,y+10,{at,c,sw:5}); P.line(x,y+40,x-24,y+92,{at,c,sw:5}); P.line(x,y+40,x+24,y+92,{at,c,sw:5}); }
-  for(let c=0;c<8;c++) fig(340+c*170, 400, c<3?'red':'muted', P.c(1)+c*0.12);
-  for(let c=0;c<8;c++) fig(340+c*170, 620, 'faint', P.c(0,0.2));
-  P.text('喝咖啡', { x: 1420, y: 320, w: 260, size: 38, color:'red', at: P.c(2), cps: 4 });
-  P.arrow(850, 470, 850, 580, { at: P.c(2,0.4), color: 'blue' });
+// Native source APIs; Frametell supplies only the page clock and output viewport.
+ENGINE.visual('p02', P => {
+  P.nativeScene((N, host) => {
+    const c=host.canvas().getContext('2d');
+    return t=>{c.fillStyle=N.CREAM;c.fillRect(0,0,1920,1080);for(let i=0;i<8;i++){c.save();c.translate(360+(i%4)*360,350+Math.floor(i/4)*350);c.scale(235,235);N.drawFigure(c,N.joints(N.runCycle(t*.8+i*.13)),i<5?'#be453f':'#324c74','#8b7864');c.restore();}};
+  });
 });

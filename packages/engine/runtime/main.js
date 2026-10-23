@@ -25,6 +25,7 @@
   window.__ready = (async () => {
     // pass 1: build once to discover every glyph, load those font subsets, then build for real (so text can be measured)
     ENGINE.init({ only });
+    await ENGINE.whenReady();
     await document.fonts.ready;
     // request every glyph subset used anywhere (fonts are split by unicode-range)
     const all = document.getElementById('stage').textContent + SCRIPT.PAGES.map((p) => p.cues.map((c) => (typeof c === 'string' ? c : c.t)).join('') + p.section).join('') + '0123456789/·';
@@ -34,6 +35,7 @@
     ]).concat((window.EXTRA_FONTS || []).map((f) => document.fonts.load(f, all + '0123456789%.,+-×÷=¥?!？！'))));   // extras can register more font faces
     await document.fonts.ready;
     ENGINE.init({ subs: q.has('subs') || (!q.has('render') && !q.has('t') && !q.has('nosubs')), only });
+    await ENGINE.whenReady();
     ENGINE.renderAt(0);
     return ENGINE.layout.duration;
   })();

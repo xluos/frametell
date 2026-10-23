@@ -1,0 +1,195 @@
+{
+  "crayon": {
+    "id": "lemo-crayon",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-crayon.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/crayon-book/STYLE.md",
+    "selectedHere": false
+  },
+  "engraving": {
+    "id": "lemo-engraving",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-engraving.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/engraving/STYLE.md",
+    "selectedHere": false
+  },
+  "midcentury": {
+    "id": "lemo-toon",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-toon.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/midcentury-toon/STYLE.md",
+    "selectedHere": false
+  },
+  "blueprint": {
+    "id": "lemo-blueprint",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-blueprint.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/blueprint/STYLE.md",
+    "selectedHere": true
+  },
+  "one-line": {
+    "id": "lemo-one-line",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-one-line.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/one-line/STYLE.md",
+    "selectedHere": true
+  },
+  "screencast": {
+    "id": "lemo-screencast",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-screencast.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/living-screencast/STYLE.md",
+    "selectedHere": true
+  },
+  "watercolor": {
+    "id": "lemo-watercolor",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-watercolor.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/watercolor/STYLE.md",
+    "selectedHere": true
+  },
+  "isotype": {
+    "id": "lemo-pictogram",
+    "upstream": "lemo-opuscar",
+    "assets": [
+      "native/bundles/lemo-pictogram.js"
+    ],
+    "grammar": "native/sources/lemo-opuscar/styles/pictogram-motion/STYLE.md",
+    "selectedHere": true
+  },
+  "vector": {
+    "id": "huashu",
+    "upstream": "huashu-art-motion",
+    "assets": [
+      "native/bundles/huashu.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "ink-wash": {
+    "id": "huashu",
+    "upstream": "huashu-art-motion",
+    "assets": [
+      "native/bundles/huashu.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "swiss": {
+    "id": "huashu",
+    "upstream": "huashu-art-motion",
+    "assets": [
+      "native/bundles/huashu.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "pop": {
+    "id": "huashu",
+    "upstream": "huashu-art-motion",
+    "assets": [
+      "native/bundles/huashu.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "broadsheet": {
+    "id": "huashu",
+    "upstream": "huashu-art-motion",
+    "assets": [
+      "native/bundles/huashu.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "collage": {
+    "id": "huashu",
+    "upstream": "huashu-art-motion",
+    "assets": [
+      "native/bundles/huashu.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "instrument": {
+    "id": "anatomy",
+    "upstream": "anatomy",
+    "assets": [
+      "native/bundles/anatomy.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "isometric": {
+    "id": "anatomy",
+    "upstream": "anatomy",
+    "assets": [
+      "native/bundles/anatomy.js"
+    ],
+    "grammar": null,
+    "selectedHere": true
+  },
+  "inked": {
+    "id": "colorfigures",
+    "upstream": "colorfigures",
+    "assets": [
+      "native/bundles/colorfigures.js"
+    ],
+    "grammar": null,
+    "selectedHere": false
+  },
+  "math": {
+    "id": "manim-web",
+    "upstream": "manim-web",
+    "assets": [
+      "native/bundles/manim-web.js"
+    ],
+    "grammar": null,
+    "selectedHere": true
+  },
+  "mascot": {
+    "id": "doodle-anim",
+    "upstream": "doodle-anim",
+    "assets": [
+      "native/bundles/doodle-anim.js"
+    ],
+    "grammar": null,
+    "selectedHere": true,
+    "width": 1280,
+    "height": 720
+  },
+  "chat": {
+    "id": "chat-rap-video",
+    "upstream": "chat-rap-video",
+    "assets": [
+      "native/bundles/chat-rap-video.js"
+    ],
+    "grammar": null,
+    "selectedHere": true,
+    "width": 1080,
+    "height": 1920
+  },
+  "metro": {
+    "id": "nf-metro",
+    "upstream": "nf-metro",
+    "assets": [
+      "native/bundles/nf-metro.js"
+    ],
+    "grammar": null,
+    "selectedHere": true
+  }
+}

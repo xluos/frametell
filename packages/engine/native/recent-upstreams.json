@@ -1,0 +1,29 @@
+{
+  "manim-web": {
+    "url": "https://github.com/maloyan/manim-web",
+    "version": "0.39.4",
+    "distribution": "https://registry.npmjs.org/manim-web/-/manim-web-0.39.4.tgz",
+    "integrity": "sha512-DAmO5AQ0ISNiOgU4tHE01jTjmAyiNLy21/iVcXWpvI9YeEYOgCfOikdtFdcggASzRI2fVr51+Iq6UYmb2OyRXA==",
+    "license": "MIT",
+    "created": "2026-01-29"
+  },
+  "doodle-anim": {
+    "url": "https://github.com/feitangyuan/doodle-anim",
+    "revision": "bfc4c257151450c03f13013dec5585ebb935aeb4",
+    "license": "MIT",
+    "created": "2026-08-29"
+  },
+  "chat-rap-video": {
+    "url": "https://github.com/weibo-job/chat-rap-video",
+    "revision": "546d0ea7bbe14ee5ca58620255a8363d95246fdf",
+    "license": "MIT",
+    "created": "2026-08-13"
+  },
+  "nf-metro": {
+    "url": "https://github.com/seqeralabs/nf-metro",
+    "version": "2.1.0",
+    "distribution": "https://pypi.org/project/nf-metro/2.1.0/",
+    "license": "MIT",
+    "created": "2026-02-15"
+  }
+}
