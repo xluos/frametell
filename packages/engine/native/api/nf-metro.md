@@ -1,6 +1,6 @@
 # nf-metro 2.1.0
 
-The original Python CLI performs layout and SVG drawing. The browser adapter `N.mount(host, originalSVG)` pauses the SVG's native SMIL timeline and seeks it with page-local seconds. Geometry, text placement, colours, line routing, station marks and animation paths are the upstream output.
+The original Python CLI performs layout and SVG drawing. The browser adapter `N.mount(host, originalSVG)` pauses and seeks the SVG's original CSS motion-path animations and SMIL timeline with page-local seconds. Geometry, text placement, colours, line routing, station marks and animation paths are the upstream output.
 
 For EVERY new or revised page, write `materials/p01.mmd` (replace p01 with the current page id) and run:
 

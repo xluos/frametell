@@ -43,7 +43,10 @@ export function seek(scene, time) {
   svg.setAttribute('width', host.width); svg.setAttribute('height', host.height);
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
   host.root.appendChild(svg); svg.pauseAnimations();
-  return { render(t) { svg.setCurrentTime(Math.max(0,t)); }, dispose() { svg.remove(); } };
+  // nf-metro uses CSS motion paths for trains. SVG.setCurrentTime controls SMIL only; seek both native timelines.
+  const seek = t => { svg.setCurrentTime(Math.max(0,t)); for (const animation of svg.getAnimations({subtree:true})) { animation.pause(); animation.currentTime = Math.max(0,t)*1000; } };
+  seek(0);
+  return { render: seek, dispose() { for (const animation of svg.getAnimations({subtree:true})) animation.cancel(); svg.remove(); } };
 }`,
   };
   const renderers = {};

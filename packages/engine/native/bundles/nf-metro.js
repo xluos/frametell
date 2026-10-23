@@ -36,9 +36,16 @@ var NativeModule = (() => {
     svg.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
     host.root.appendChild(svg);
     svg.pauseAnimations();
-    return { render(t) {
+    const seek = (t) => {
       svg.setCurrentTime(Math.max(0, t));
-    }, dispose() {
+      for (const animation of svg.getAnimations({ subtree: true })) {
+        animation.pause();
+        animation.currentTime = Math.max(0, t) * 1e3;
+      }
+    };
+    seek(0);
+    return { render: seek, dispose() {
+      for (const animation of svg.getAnimations({ subtree: true })) animation.cancel();
       svg.remove();
     } };
   }

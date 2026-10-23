@@ -39,6 +39,16 @@ test('recent backends load offline in portrait; chat stack effects remain stable
             catch(e){return e.message.includes('original CLI diagram manifest');}
           });
           assert.equal(refused,true,'a handmade SVG must not masquerade as native nf-metro output');
+          const motion=await page.evaluate(()=>{
+            const p=ENGINE.pages[0],svg=p.root.querySelector('.native-scene').shadowRoot.querySelector('svg');
+            const at=t=>{ENGINE.renderAt(p.pg.start+t);return svg.getAnimations({subtree:true}).map(a=>({time:a.currentTime,state:a.playState,offset:getComputedStyle(a.effect.target).offsetDistance}));};
+            return {a:at(.2),b:at(1),c:at(.2)};
+          });
+          assert.ok(motion.a.length>0,'original metro train CSS animations must be present');
+          assert.ok(motion.a.every(a=>Math.abs(a.time-200)<1&&a.state==='paused'));
+          assert.ok(motion.b.every(a=>Math.abs(a.time-1000)<1));
+          assert.notDeepEqual(motion.a.map(a=>a.offset),motion.b.map(a=>a.offset));
+          assert.deepEqual(motion.a,motion.c,'backwards seeks restore the same original motion-path state');
         }
         if(id==='math') {
           const runtime=await page.evaluate(()=>{for(let frame=0;frame<=84;frame++)ENGINE.renderAt(frame/12);return ENGINE.errors;});
