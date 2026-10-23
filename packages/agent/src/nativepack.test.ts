@@ -1,7 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { nativeRenderer, nativePack } from './nativepack.js';
-import { pageSystem, plannerSystem, reviewerSystem } from './prompts.js';
+import { pageSystem, plannerSystem, reviewerSystem, storyboardPrompt } from './prompts.js';
+
+test('native storyboards keep source typography while retaining language and cue anchors', () => {
+  for (const lang of ['zh', 'en'] as const) {
+    const text = storyboardPrompt({durationSec:60,lang}, 'math', []);
+    assert.ok(text.includes("native renderer's typography"));
+    assert.ok(!/at most (8 characters|5 English words)/.test(text));
+    assert.ok(text.includes(`"lang": "${lang}"`));
+    assert.ok(text.includes('a beat tied to a word'));
+  }
+  assert.ok(storyboardPrompt({durationSec:60}, 'whiteboard', []).includes('at most 8 characters'));
+});
 
 test('native pages receive the original medium and APIs without generic palette and camera restrictions', () => {
   const text = pageSystem('crayon');

@@ -106,7 +106,7 @@ export const replyNote = (replyLang?: Lang, lang?: Lang) => `Write everything yo
 
 /** What a stage must know about the language: the film's (narration, on-screen text) and the user's (the reports). It goes
  *  in the user messages, never the system prompts, so every film shares the cached part whatever its language. */
-export function langNote(stage: 'storyboard' | 'script' | 'page' | 'revise', lang: Lang = 'zh', replyLang?: Lang) {
+export function langNote(stage: 'storyboard' | 'script' | 'page' | 'revise', lang: Lang = 'zh', replyLang?: Lang, native = false) {
   const film = {
     zh: {
       storyboard: 'Film language: **Chinese**. In storyboard.json write `"lang": "zh"`; write title, summary, section, say and each beat\'s object / action / text in Simplified Chinese: on-screen text at most 8 characters per element, and a beat tied to a word names the Chinese word as spoken (`c2:三十年`).',
@@ -122,7 +122,10 @@ export function langNote(stage: 'storyboard' | 'script' | 'page' | 'revise', lan
     },
   }[lang][stage];
   // the page agent's one sentence is shown to the user too
-  return `\n${film}\n${replyNote(replyLang, lang)}`;
+  const wording = native && stage === 'storyboard'
+    ? film.replace(/on-screen text at most (?:8 characters|5 English words) per element/, "screen text follows the native renderer's typography and layout")
+    : film;
+  return `\n${wording}\n${replyNote(replyLang, lang)}`;
 }
 
 /** What a stage must know about the voice. Volcengine reads a tone instruction with each take (ElevenLabs ignores one);
@@ -155,7 +158,7 @@ export function storyboardPrompt(brief: Brief, style: string, materials: string[
     materials.includes('research.md') ? 'materials/research.md is a research brief prepared for this film from what the request points at (and the web): use its facts, the code and quotes it gives for the screen, and heed its Careful section. It is your main source for facts; the user\'s own words and material come first where they differ.' : '',
     `Style: ${style} (write "${style}" as the style in storyboard.json).`,
     `Material: ${materials.map((m) => 'materials/' + m).join(', ') || '(none; write from the topic)'}`,
-    'Stop and report once storyboard.json is written.' + withVoice('storyboard', brief) + langNote('storyboard', brief.lang, brief.replyLang),
+    'Stop and report once storyboard.json is written.' + withVoice('storyboard', brief) + langNote('storyboard', brief.lang, brief.replyLang, !!nativeRenderer(style)),
   ].filter(Boolean).join('\n');
 }
 
